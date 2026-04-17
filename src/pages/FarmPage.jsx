@@ -10,7 +10,7 @@ const FARM_MAP = {
   // haengbok: { name: '행복농장', owner: '홍길동', initial: '홍' },
 }
 
-function Stats({ data }) {
+function Stats({ data, filter, mode }) {
   if (!data.length) return null
   const avgCw    = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
   const avgBf    = (data.reduce((a,d)=>a+d.bf,0)/data.length).toFixed(1)
@@ -18,6 +18,13 @@ function Stats({ data }) {
   const female   = data.filter(d=>d.sex==='암').length
   const castrate = data.filter(d=>d.sex==='거세').length
   const total    = female + castrate
+
+  const dateLabel = filter === 'all'
+    ? '전체 기간'
+    : mode === 'monthly'
+      ? filter.replace('-', '년 ') + '월'
+      : filter
+
   return (
     <>
       <div className="stat-grid">
@@ -27,6 +34,8 @@ function Stats({ data }) {
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
       </div>
       <div className="sex-bar">
+        <b style={{color:'#1a1a18'}}>{dateLabel}</b>
+        <span style={{color:'rgba(0,0,0,0.15)'}}>|</span>
         <span>암컷</span><b>{female}두</b>
         <span>거세</span><b>{castrate}두</b>
         <span>암컷 비율</span><b style={{color:'#185FA5'}}>{total>0?((female/total)*100).toFixed(1)+'%':'—'}</b>
@@ -98,7 +107,7 @@ export default function FarmPage() {
             </div>
           </div>
 
-          <Stats data={filtered}/>
+          <Stats data={filtered} filter={filter} mode={mode}/>
           <ScatterChart data={filtered}/>
 
           <div className="legend" style={{marginTop:10}}>
