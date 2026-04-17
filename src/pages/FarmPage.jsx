@@ -4,12 +4,6 @@ import { supabase } from '../lib/supabase'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 
-const FARM_MAP = {
-  sunkyung: { name: '선경농장', owner: '염철근', initial: '염' },
-  // 거래처 추가 시 여기도 추가
-  // haengbok: { name: '행복농장', owner: '홍길동', initial: '홍' },
-}
-
 function Stats({ data, filter, mode }) {
   if (!data.length) return null
   const avgCw    = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
@@ -17,14 +11,8 @@ function Stats({ data, filter, mode }) {
   const plus     = data.filter(d=>d.cw>=83&&d.cw<93&&d.bf>=17&&d.bf<25).length
   const female   = data.filter(d=>d.sex==='암').length
   const castrate = data.filter(d=>d.sex==='거세').length
-  const total    = female + castrate
-
-  const dateLabel = filter === 'all'
-    ? '전체 기간'
-    : mode === 'monthly'
-      ? filter.replace('-', '년 ') + '월'
-      : filter
-
+  const total    = female+castrate
+  const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
   return (
     <>
       <div className="stat-grid">
@@ -46,31 +34,29 @@ function Stats({ data, filter, mode }) {
 
 export default function FarmPage() {
   const { farmSlug } = useParams()
-  const farm = FARM_MAP[farmSlug]
+  const [farm,   setFarm]   = useState(null)
   const [data,   setData]   = useState([])
   const [mode,   setMode]   = useState('daily')
   const [filter, setFilter] = useState('all')
   const [loading,setLoading]= useState(true)
 
-  useEffect(() => {
-    if (!farm) { setLoading(false); return }
-    supabase
-      .from('shipments')
-      .select('*')
-      .eq('farm_slug', farmSlug)
-      .order('date', { ascending: false })
-      .then(({ data: rows }) => { setData(rows || []); setLoading(false) })
-  }, [farmSlug])
+  useEffect(()=>{
+    async function load() {
+      const { data:farmRow } = await supabase.from('farms').select('*').eq('slug', farmSlug).single()
+      if (!farmRow) { setLoading(false); return }
+      setFarm(farmRow)
+      const { data:rows } = await supabase.from('shipments').select('*').eq('farm_slug', farmSlug).order('date',{ascending:false})
+      setData(rows||[])
+      setLoading(false)
+    }
+    load()
+  },[farmSlug])
 
-  if (!farm) return (
-    <div className="page"><div className="empty">존재하지 않는 농장 링크입니다.</div></div>
-  )
-  if (loading) return (
-    <div className="page"><div className="empty">데이터를 불러오는 중...</div></div>
-  )
+  if (loading) return <div className="page"><div className="empty">데이터를 불러오는 중...</div></div>
+  if (!farm)   return <div className="page"><div className="empty">존재하지 않는 농장 링크입니다.</div></div>
 
-  function getLabel(d) { return mode === 'daily' ? d.date : d.date?.slice(0,7) }
-  const filtered = filter === 'all' ? data : data.filter(d => getLabel(d) === filter)
+  function getLabel(d){ return mode==='daily'?d.date:d.date?.slice(0,7) }
+  const filtered = filter==='all'?data:data.filter(d=>getLabel(d)===filter)
   const labels   = [...new Set(data.map(getLabel))].sort().reverse()
 
   return (
@@ -86,9 +72,9 @@ export default function FarmPage() {
         </div>
       </div>
 
-      {data.length === 0 ? (
+      {data.length===0?(
         <div className="card"><div className="empty" style={{padding:'32px 0'}}>아직 업로드된 데이터가 없습니다.</div></div>
-      ) : (
+      ):(
         <div className="card">
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:12}}>
             <div>
@@ -106,10 +92,8 @@ export default function FarmPage() {
               </select>
             </div>
           </div>
-
           <Stats data={filtered} filter={filter} mode={mode}/>
           <ScatterChart data={filtered}/>
-
           <div className="legend" style={{marginTop:10}}>
             <div className="leg-item"><div className="leg-dot" style={{background:'#E24B4A'}}></div>1등급+ 범위 내</div>
             <div className="leg-item"><div className="leg-dot" style={{background:'#378ADD'}}></div>1등급 이하</div>
@@ -119,7 +103,7 @@ export default function FarmPage() {
         </div>
       )}
     </div>
-    <Footer />
+    <Footer/>
   </>
   )
 }
