@@ -4,30 +4,22 @@ import { parseExcel } from '../lib/parseExcel'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 
-// ✅ 관리자 비밀번호 — 원하는 것으로 변경하세요
 const ADMIN_PASSWORD = '1234'
 
-const FARMS = [
-  { name: '선경농장', owner: '염철근', slug: 'sunkyung' },
-  // 거래처 추가 시 여기에 계속 넣으세요
-  // { name: '행복농장', owner: '홍길동', slug: 'haengbok' },
-]
+function slugify(owner, name) {
+  const str = (owner + name).toLowerCase().replace(/\s+/g,'')
+  return str.slice(0,20) + '_' + Date.now().toString().slice(-4)
+}
 
 function Stats({ data, filter, mode }) {
   if (!data.length) return null
-  const avgCw   = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
-  const avgBf   = (data.reduce((a,d)=>a+d.bf,0)/data.length).toFixed(1)
-  const plus    = data.filter(d=>d.cw>=83&&d.cw<93&&d.bf>=17&&d.bf<25).length
-  const female  = data.filter(d=>d.sex==='암').length
-  const castrate= data.filter(d=>d.sex==='거세').length
-  const total   = female+castrate
-
-  const dateLabel = filter === 'all'
-    ? '전체 기간'
-    : mode === 'monthly'
-      ? filter.replace('-', '년 ') + '월'
-      : filter
-
+  const avgCw    = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
+  const avgBf    = (data.reduce((a,d)=>a+d.bf,0)/data.length).toFixed(1)
+  const plus     = data.filter(d=>d.cw>=83&&d.cw<93&&d.bf>=17&&d.bf<25).length
+  const female   = data.filter(d=>d.sex==='암').length
+  const castrate = data.filter(d=>d.sex==='거세').length
+  const total    = female+castrate
+  const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
   return (
     <>
       <div className="stat-grid">
@@ -48,100 +40,125 @@ function Stats({ data, filter, mode }) {
 }
 
 export default function AdminPage() {
-  const [authed,    setAuthed]    = useState(false)
-  const [pw,        setPw]        = useState('')
-  const [pwErr,     setPwErr]     = useState(false)
-  const [selFarm,   setSelFarm]   = useState(FARMS[0])
-  const [data,      setData]      = useState([])
-  const [status,    setStatus]    = useState(null)
-  const [loading,   setLoading]   = useState(false)
-  const [dbData,    setDbData]    = useState([])
-  const [mode,      setMode]      = useState('daily')
-  const [filter,    setFilter]    = useState('all')
-  const [copied,    setCopied]    = useState(null)
-  const [delDate,   setDelDate]   = useState('')
-  const [delStatus, setDelStatus] = useState(null)
-  const [delConfirm,setDelConfirm]= useState(false)
-  const [delLoading,setDelLoading]= useState(false)
+  const [authed,         setAuthed]         = useState(false)
+  const [pw,             setPw]             = useState('')
+  const [pwErr,          setPwErr]          = useState(false)
+  const [farms,          setFarms]          = useState([])
+  const [selFarm,        setSelFarm]        = useState(null)
+  const [farmsLoading,   setFarmsLoading]   = useState(true)
+  const [newName,        setNewName]        = useState('')
+  const [newOwner,       setNewOwner]       = useState('')
+  const [addStatus,      setAddStatus]      = useState(null)
+  const [addLoading,     setAddLoading]     = useState(false)
+  const [delFarmConfirm, setDelFarmConfirm] = useState(null)
+  const [dbData,         setDbData]         = useState([])
+  const [status,         setStatus]         = useState(null)
+  const [loading,        setLoading]        = useState(false)
+  const [mode,           setMode]           = useState('daily')
+  const [filter,         setFilter]         = useState('all')
+  const [copied,         setCopied]         = useState(null)
+  const [delDate,        setDelDate]        = useState('')
+  const [delStatus,      setDelStatus]      = useState(null)
+  const [delConfirm,     setDelConfirm]     = useState(false)
+  const [delLoading,     setDelLoading]     = useState(false)
 
-  useEffect(() => { if (authed) loadDb() }, [authed, selFarm])
+  useEffect(()=>{ if(authed) loadFarms() },[authed])
+  useEffect(()=>{ if(selFarm) loadDb() },[selFarm])
+
+  async function loadFarms() {
+    setFarmsLoading(true)
+    const { data } = await supabase.from('farms').select('*').order('created_at',{ascending:true})
+    const list = data||[]
+    setFarms(list)
+    if(list.length>0 && !selFarm) setSelFarm(list[0])
+    setFarmsLoading(false)
+  }
 
   async function loadDb() {
-    const { data: rows } = await supabase
-      .from('shipments')
-      .select('*')
-      .eq('farm_slug', selFarm.slug)
-      .order('date', { ascending: false })
-    setDbData(rows || [])
+    if(!selFarm) return
+    const { data:rows } = await supabase.from('shipments').select('*').eq('farm_slug',selFarm.slug).order('date',{ascending:false})
+    setDbData(rows||[])
+    setFilter('all'); setDelDate(''); setDelStatus(null); setDelConfirm(false); setStatus(null)
   }
 
-  function getLabel(d) { return mode === 'daily' ? d.date : d.date?.slice(0,7) }
-  const filtered = filter === 'all' ? dbData : dbData.filter(d => getLabel(d) === filter)
+  function getLabel(d){ return mode==='daily'?d.date:d.date?.slice(0,7) }
+  const filtered = filter==='all'?dbData:dbData.filter(d=>getLabel(d)===filter)
   const labels   = [...new Set(dbData.map(getLabel))].sort().reverse()
 
-  function handleLogin(e) {
+  function handleLogin(e){
     e.preventDefault()
-    if (pw === ADMIN_PASSWORD) { setAuthed(true) } else { setPwErr(true) }
+    if(pw===ADMIN_PASSWORD) setAuthed(true)
+    else setPwErr(true)
   }
 
-  async function handleFile(file) {
-    if (!file) return
+  async function handleAddFarm(e){
+    e.preventDefault()
+    if(!newName.trim()||!newOwner.trim()) return
+    setAddLoading(true); setAddStatus(null)
+    const slug    = slugify(newOwner.trim(), newName.trim())
+    const initial = newOwner.trim().charAt(0)
+    const { error } = await supabase.from('farms').insert({name:newName.trim(),owner:newOwner.trim(),slug,initial})
+    if(error) setAddStatus({ok:false,msg:'❌ 추가 실패: '+error.message})
+    else {
+      setAddStatus({ok:true,msg:`✅ ${newName} 추가 완료! 거래처 링크: /farm/${slug}`})
+      setNewName(''); setNewOwner(''); loadFarms()
+    }
+    setAddLoading(false)
+  }
+
+  async function handleDelFarm(farm){
+    await supabase.from('farms').delete().eq('slug',farm.slug)
+    setDelFarmConfirm(null)
+    if(selFarm?.slug===farm.slug){ setSelFarm(null); setDbData([]) }
+    loadFarms()
+  }
+
+  async function handleFile(file){
+    if(!file||!selFarm) return
     setLoading(true); setStatus(null)
     try {
       const buf = await file.arrayBuffer()
       const { rows, sheetDate } = parseExcel(buf)
-      setData(rows)
-
-      const inserts = rows.map(r => ({ ...r, farm_slug: selFarm.slug, farm_name: selFarm.name, owner: selFarm.owner }))
+      const inserts = rows.map(r=>({...r,farm_slug:selFarm.slug,farm_name:selFarm.name,owner:selFarm.owner}))
       const { error } = await supabase.from('shipments').insert(inserts)
-      if (error) throw new Error(error.message)
-
-      const f = rows.filter(d=>d.sex==='암').length, c = rows.filter(d=>d.sex==='거세').length
-      setStatus({ ok: true, msg: `✅ ${rows.length}두 저장 완료 (암 ${f}두 / 거세 ${c}두) · 출하일 ${sheetDate}` })
+      if(error) throw new Error(error.message)
+      const f=rows.filter(d=>d.sex==='암').length, c=rows.filter(d=>d.sex==='거세').length
+      setStatus({ok:true,msg:`✅ ${rows.length}두 저장 완료 (암 ${f}두 / 거세 ${c}두) · 출하일 ${sheetDate}`})
       loadDb()
-    } catch (err) {
-      setStatus({ ok: false, msg: '❌ ' + err.message })
-    }
+    } catch(err){ setStatus({ok:false,msg:'❌ '+err.message}) }
     setLoading(false)
   }
 
-  function copyLink(slug) {
+  function copyLink(slug){
     navigator.clipboard.writeText(`${location.origin}/farm/${slug}`)
-    setCopied(slug); setTimeout(() => setCopied(null), 1500)
+    setCopied(slug); setTimeout(()=>setCopied(null),1500)
   }
 
-  // 날짜 단위 삭제
-  const dateList = [...new Set(dbData.map(d => d.date))].sort().reverse()
-  const delCount = delDate ? dbData.filter(d => d.date === delDate).length : 0
+  const dateList = [...new Set(dbData.map(d=>d.date))].sort().reverse()
+  const delCount = delDate?dbData.filter(d=>d.date===delDate).length:0
 
-  async function handleDelete() {
-    if (!delDate) return
+  async function handleDelete(){
+    if(!delDate) return
     setDelLoading(true); setDelStatus(null)
     try {
-      const { error } = await supabase
-        .from('shipments')
-        .delete()
-        .eq('farm_slug', selFarm.slug)
-        .eq('date', delDate)
-      if (error) throw new Error(error.message)
-      setDelStatus({ ok: true, msg: `✅ ${delDate} 데이터 ${delCount}두 삭제 완료` })
-      setDelDate(''); setDelConfirm(false)
-      loadDb()
-    } catch (err) {
-      setDelStatus({ ok: false, msg: '❌ ' + err.message })
-    }
+      const { error } = await supabase.from('shipments').delete().eq('farm_slug',selFarm.slug).eq('date',delDate)
+      if(error) throw new Error(error.message)
+      setDelStatus({ok:true,msg:`✅ ${delDate} 데이터 ${delCount}두 삭제 완료`})
+      setDelDate(''); setDelConfirm(false); loadDb()
+    } catch(err){ setDelStatus({ok:false,msg:'❌ '+err.message}) }
     setDelLoading(false)
   }
 
-  if (!authed) return (
+  const inp = {width:'100%',padding:'8px 12px',border:'0.5px solid rgba(0,0,0,0.12)',borderRadius:8,fontSize:14,fontFamily:'inherit',outline:'none'}
+
+  if(!authed) return (
     <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#F5F6F4'}}>
       <div className="card" style={{width:320,textAlign:'center'}}>
         <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>관리자 로그인</div>
         <div style={{fontSize:13,color:'#888',marginBottom:20}}>양돈 출하 성적 대시보드</div>
         <form onSubmit={handleLogin}>
-          <input type="password" placeholder="비밀번호" value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false)}}
-            style={{width:'100%',padding:'9px 12px',border:`0.5px solid ${pwErr?'#E24B4A':'rgba(0,0,0,0.12)'}`,borderRadius:8,fontSize:14,fontFamily:'inherit',marginBottom:8,outline:'none'}}/>
-          {pwErr && <div style={{color:'#E24B4A',fontSize:12,marginBottom:8}}>비밀번호가 틀렸습니다</div>}
+          <input type="password" placeholder="비밀번호" value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false)}} style={{...inp,marginBottom:8}}/>
+          {pwErr&&<div style={{color:'#E24B4A',fontSize:12,marginBottom:8}}>비밀번호가 틀렸습니다</div>}
           <button type="submit" className="btn btn-green" style={{width:'100%',justifyContent:'center'}}>로그인</button>
         </form>
       </div>
@@ -150,107 +167,119 @@ export default function AdminPage() {
 
   return (
   <>
-    <div className="page">
-      <div className="header">
-        <div className="header-left">
-          <div className="avatar green">관</div>
-          <div><div className="farm-name">관리자 대시보드</div><div className="farm-sub">양돈 출하 성적 관리</div></div>
-        </div>
+  <div className="page">
+    <div className="header">
+      <div className="header-left">
+        <div className="avatar green">관</div>
+        <div><div className="farm-name">관리자 대시보드</div><div className="farm-sub">양돈 출하 성적 관리</div></div>
       </div>
+    </div>
 
-      {/* 거래처 선택 */}
-      <div className="card" style={{marginBottom:14}}>
-        <div style={{fontSize:13,fontWeight:500,marginBottom:10,color:'#555'}}>거래처 선택</div>
-        <table className="farm-table">
-          <thead><tr><th>농장명</th><th>대표자</th><th>고유 링크</th><th>저장 데이터</th></tr></thead>
+    {/* 거래처 목록 + 추가 */}
+    <div className="card" style={{marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:500,marginBottom:10,color:'#555'}}>거래처 목록</div>
+      {farmsLoading ? (
+        <div style={{fontSize:13,color:'#aaa'}}>불러오는 중...</div>
+      ) : farms.length===0 ? (
+        <div style={{fontSize:13,color:'#aaa',marginBottom:10}}>등록된 거래처가 없습니다. 아래에서 추가해주세요.</div>
+      ) : (
+        <table className="farm-table" style={{marginBottom:14}}>
+          <thead><tr><th>농장명</th><th>대표자</th><th>거래처 링크</th><th>선택</th><th>삭제</th></tr></thead>
           <tbody>
-            {FARMS.map(f => {
-              const count = f.slug === selFarm.slug ? dbData.length : '—'
-              return (
-                <tr key={f.slug} onClick={()=>setSelFarm(f)} style={{cursor:'pointer',background:f.slug===selFarm.slug?'#E6F1FB':''}}>
-                  <td><b>{f.name}</b> {f.slug===selFarm.slug&&<span className="badge badge-blue">선택됨</span>}</td>
-                  <td>{f.owner}</td>
-                  <td>
-                    <button className="copy-link" onClick={e=>{e.stopPropagation();copyLink(f.slug)}}>
-                      {copied===f.slug ? '복사됨 ✓' : `/farm/${f.slug}`}
-                    </button>
-                  </td>
-                  <td>{f.slug===selFarm.slug ? <b>{dbData.length}두</b> : '—'}</td>
-                </tr>
-              )
-            })}
+            {farms.map(f=>(
+              <tr key={f.slug} style={{background:selFarm?.slug===f.slug?'#E6F1FB':''}}>
+                <td data-label="농장명"><b>{f.name}</b> {selFarm?.slug===f.slug&&<span className="badge badge-blue">선택됨</span>}</td>
+                <td data-label="대표자">{f.owner}</td>
+                <td data-label="링크">
+                  <button className="copy-link" onClick={()=>copyLink(f.slug)}>
+                    {copied===f.slug?'복사됨 ✓':`/farm/${f.slug}`}
+                  </button>
+                </td>
+                <td data-label="선택">
+                  <button className="btn btn-outline" style={{padding:'4px 12px',fontSize:12}} onClick={()=>setSelFarm(f)}>선택</button>
+                </td>
+                <td data-label="삭제">
+                  {delFarmConfirm===f.slug?(
+                    <div style={{display:'flex',gap:6}}>
+                      <button className="btn" style={{padding:'4px 10px',fontSize:12,background:'#E24B4A',color:'#fff',border:'none'}} onClick={()=>handleDelFarm(f)}>확인</button>
+                      <button className="btn btn-outline" style={{padding:'4px 10px',fontSize:12}} onClick={()=>setDelFarmConfirm(null)}>취소</button>
+                    </div>
+                  ):(
+                    <button className="btn" style={{padding:'4px 10px',fontSize:12,background:'#FCEBEB',color:'#A32D2D',border:'0.5px solid #F09595'}} onClick={()=>setDelFarmConfirm(f.slug)}>삭제</button>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
+      )}
 
-      {/* 업로드 */}
+      <div style={{borderTop:'0.5px solid rgba(0,0,0,0.08)',paddingTop:14}}>
+        <div style={{fontSize:13,fontWeight:500,marginBottom:10,color:'#555'}}>거래처 추가</div>
+        <form onSubmit={handleAddFarm} style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:11,color:'#888',marginBottom:4}}>농장명</div>
+            <input placeholder="예) 선경농장" value={newName} onChange={e=>setNewName(e.target.value)} style={inp} required/>
+          </div>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:11,color:'#888',marginBottom:4}}>대표자 이름</div>
+            <input placeholder="예) 염철근" value={newOwner} onChange={e=>setNewOwner(e.target.value)} style={inp} required/>
+          </div>
+          <button type="submit" className="btn btn-green" disabled={addLoading} style={{whiteSpace:'nowrap'}}>
+            {addLoading?'추가 중...':'+ 거래처 추가'}
+          </button>
+        </form>
+        {addStatus&&<div className={`status ${addStatus.ok?'status-ok':'status-err'}`} style={{marginTop:8}}>{addStatus.msg}</div>}
+      </div>
+    </div>
+
+    {selFarm&&(<>
+      {/* 엑셀 업로드 */}
       <div className="card" style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:10,color:'#555'}}>{selFarm.name} · 엑셀 업로드</div>
         <label>
           <div className={`upload-zone${loading?' drag':''}`}>
-            <div style={{fontSize:14,fontWeight:500,marginBottom:4}}>
-              {loading ? '업로드 중...' : '엑셀 파일을 드래그하거나 클릭'}
-            </div>
-            <div style={{fontSize:12,color:'#888'}}>선경농장_출하성적_양식_v2.xlsx</div>
+            <div style={{fontSize:14,fontWeight:500,marginBottom:4}}>{loading?'업로드 중...':'엑셀 파일을 드래그하거나 클릭'}</div>
+            <div style={{fontSize:12,color:'#888'}}>출하성적_양식_v2.xlsx</div>
             <input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={e=>handleFile(e.target.files[0])} disabled={loading}/>
           </div>
         </label>
-        {status && <div className={`status ${status.ok?'status-ok':'status-err'}`}>{status.msg}</div>}
+        {status&&<div className={`status ${status.ok?'status-ok':'status-err'}`}>{status.msg}</div>}
       </div>
 
-      {/* 날짜 단위 삭제 */}
+      {/* 데이터 삭제 */}
       <div className="card" style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:10,color:'#555'}}>{selFarm.name} · 데이터 삭제</div>
-        {dateList.length === 0 ? (
+        {dateList.length===0?(
           <div style={{fontSize:13,color:'#aaa'}}>저장된 데이터가 없습니다.</div>
-        ) : (
+        ):(
           <>
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
-              <select value={delDate} onChange={e=>{setDelDate(e.target.value);setDelConfirm(false);setDelStatus(null)}}
-                style={{flex:1,minWidth:160}}>
+              <select value={delDate} onChange={e=>{setDelDate(e.target.value);setDelConfirm(false);setDelStatus(null)}} style={{flex:1,minWidth:160}}>
                 <option value="">출하일 선택</option>
-                {dateList.map(d => {
-                  const cnt = dbData.filter(r=>r.date===d).length
-                  return <option key={d} value={d}>{d} ({cnt}두)</option>
-                })}
+                {dateList.map(d=>{const cnt=dbData.filter(r=>r.date===d).length;return <option key={d} value={d}>{d} ({cnt}두)</option>})}
               </select>
-              {delDate && !delConfirm && (
-                <button className="btn" onClick={()=>setDelConfirm(true)}
-                  style={{background:'#FCEBEB',color:'#A32D2D',border:'0.5px solid #F09595'}}>
-                  삭제
-                </button>
+              {delDate&&!delConfirm&&(
+                <button className="btn" onClick={()=>setDelConfirm(true)} style={{background:'#FCEBEB',color:'#A32D2D',border:'0.5px solid #F09595'}}>삭제</button>
               )}
             </div>
-
-            {delConfirm && delDate && (
+            {delConfirm&&delDate&&(
               <div style={{background:'#FCEBEB',border:'0.5px solid #F09595',borderRadius:8,padding:'12px 14px',marginBottom:8}}>
-                <div style={{fontSize:13,fontWeight:500,color:'#A32D2D',marginBottom:8}}>
-                  정말 삭제할까요?
-                </div>
-                <div style={{fontSize:12,color:'#791F1F',marginBottom:12}}>
-                  {selFarm.name} · {delDate} · {delCount}두 데이터가 영구 삭제됩니다.
-                </div>
+                <div style={{fontSize:13,fontWeight:500,color:'#A32D2D',marginBottom:8}}>정말 삭제할까요?</div>
+                <div style={{fontSize:12,color:'#791F1F',marginBottom:12}}>{selFarm.name} · {delDate} · {delCount}두 데이터가 영구 삭제됩니다.</div>
                 <div style={{display:'flex',gap:8}}>
-                  <button className="btn" onClick={handleDelete} disabled={delLoading}
-                    style={{background:'#E24B4A',color:'#fff',border:'none'}}>
-                    {delLoading ? '삭제 중...' : '확인, 삭제'}
-                  </button>
-                  <button className="btn btn-outline" onClick={()=>{setDelConfirm(false);setDelDate('')}}>
-                    취소
-                  </button>
+                  <button className="btn" onClick={handleDelete} disabled={delLoading} style={{background:'#E24B4A',color:'#fff',border:'none'}}>{delLoading?'삭제 중...':'확인, 삭제'}</button>
+                  <button className="btn btn-outline" onClick={()=>{setDelConfirm(false);setDelDate('')}}>취소</button>
                 </div>
               </div>
             )}
-
-            {delStatus && (
-              <div className={`status ${delStatus.ok?'status-ok':'status-err'}`}>{delStatus.msg}</div>
-            )}
+            {delStatus&&<div className={`status ${delStatus.ok?'status-ok':'status-err'}`}>{delStatus.msg}</div>}
           </>
         )}
       </div>
 
       {/* 차트 */}
-      {dbData.length > 0 && (
+      {dbData.length>0&&(
         <div className="card">
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:12}}>
             <div>
@@ -278,8 +307,9 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-    </div>
-    <Footer />
+    </>)}
+  </div>
+  <Footer/>
   </>
   )
 }
