@@ -161,8 +161,12 @@ export default function AdminPage() {
   async function loadDb() {
     if(!selFarm) return
     const { data:rows } = await supabase.from('shipments').select('*').eq('farm_slug',selFarm.slug).order('date',{ascending:false})
-    setDbData(rows||[])
-    setFilter('all'); setDelDate(''); setDelStatus(null); setDelConfirm(false); setStatus(null)
+    const loadedRows = rows||[]
+    setDbData(loadedRows)
+    // 가장 최근 날짜 자동 선택
+    const latestDate = loadedRows.length > 0 ? loadedRows[0].date : 'all'
+    setFilter(latestDate)
+    setDelDate(''); setDelStatus(null); setDelConfirm(false); setStatus(null)
   }
 
   function getLabel(d){ return mode==='daily'?d.date:d.date?.slice(0,7) }
