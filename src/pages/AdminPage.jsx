@@ -84,6 +84,7 @@ function Stats({ data, filter, mode }) {
   const total    = female+castrate
   const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
   const meatcos = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
+  const priceKg = data.find(d=>d.price_kg>0)?.price_kg || 0
   return (
     <>
       <div className="stat-grid">
@@ -95,16 +96,21 @@ function Stats({ data, filter, mode }) {
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
       </div>
       <div style={{background:'#F5F6F4',borderRadius:7,padding:'8px 12px',marginBottom:10}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom:meatcos.length?5:0}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom:5}}>
           <div style={{fontSize:12,fontWeight:700,color:'#1a1a18'}}>{dateLabel}</div>
-          {meatcos.length > 0 && (
-            <div style={{display:'flex',alignItems:'center',gap:5}}>
-              <span style={{fontSize:11,color:'#888'}}>육가공</span>
-              {meatcos.map((m,i)=>(
-                <span key={i} style={{fontSize:11,fontWeight:500,color:'#085041',background:'#E1F5EE',padding:'1px 8px',borderRadius:99}}>{m}</span>
-              ))}
-            </div>
-          )}
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            {priceKg > 0 && (
+              <span style={{fontSize:11,color:'#888'}}>시세 <b style={{color:'#1a1a18'}}>{Number(priceKg).toLocaleString()}원/kg</b></span>
+            )}
+            {meatcos.length > 0 && (
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{fontSize:11,color:'#888'}}>육가공</span>
+                {meatcos.map((m,i)=>(
+                  <span key={i} style={{fontSize:11,fontWeight:500,color:'#085041',background:'#E1F5EE',padding:'1px 8px',borderRadius:99}}>{m}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',fontSize:12}}>
           <span style={{color:'#888'}}>암컷 <b style={{color:'#1a1a18'}}>{female}두</b></span>
@@ -196,8 +202,8 @@ export default function AdminPage() {
     setLoading(true); setStatus(null)
     try {
       const buf = await file.arrayBuffer()
-      const { rows, sheetDate, sheetMeatco } = parseExcel(buf)
-      const inserts = rows.map(r=>({...r, farm_slug:selFarm.slug, farm_name:selFarm.name, owner:selFarm.owner, meatco: r.meatco || sheetMeatco || ''}))
+      const { rows, sheetDate, sheetMeatco, sheetPriceKg } = parseExcel(buf)
+      const inserts = rows.map(r=>({...r, farm_slug:selFarm.slug, farm_name:selFarm.name, owner:selFarm.owner, meatco: r.meatco || sheetMeatco || '', price_kg: sheetPriceKg || 0}))
       const { error } = await supabase.from('shipments').insert(inserts)
       if(error) throw new Error(error.message)
       const f=rows.filter(d=>d.sex==='암').length, c=rows.filter(d=>d.sex==='거세').length
