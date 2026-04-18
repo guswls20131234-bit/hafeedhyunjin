@@ -139,7 +139,13 @@ export default function FarmPage() {
       if (!farmRow) { setLoading(false); return }
       setFarm(farmRow)
       const { data:rows } = await supabase.from('shipments').select('*').eq('farm_slug',farmSlug).order('date',{ascending:false})
-      setData(rows||[])
+      const loadedRows = rows||[]
+      setData(loadedRows)
+      // 가장 최근 날짜 자동 선택
+      if (loadedRows.length > 0) {
+        const latestDate = loadedRows[0].date
+        setFilter(latestDate)
+      }
       setLoading(false)
     }
     load()
