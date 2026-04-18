@@ -31,6 +31,8 @@ function Stats({ data, filter, mode }) {
 
   // 육가공 업체 목록 (중복 제거)
   const meatcos = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
+  // 시세 (같은 날짜 데이터는 동일 시세 — 첫 번째 값 사용)
+  const priceKg = data.find(d=>d.price_kg>0)?.price_kg || 0
 
   return (
     <>
@@ -43,16 +45,21 @@ function Stats({ data, filter, mode }) {
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
       </div>
       <div style={{background:'#F5F6F4',borderRadius:7,padding:'8px 12px',marginBottom:10}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom: meatcos.length?5:0}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom:5}}>
           <div style={{fontSize:12,fontWeight:700,color:'#1a1a18'}}>{dateLabel}</div>
-          {meatcos.length > 0 && (
-            <div style={{display:'flex',alignItems:'center',gap:5}}>
-              <span style={{fontSize:11,color:'#888'}}>육가공</span>
-              {meatcos.map((m,i)=>(
-                <span key={i} style={{fontSize:11,fontWeight:500,color:'#085041',background:'#E1F5EE',padding:'1px 8px',borderRadius:99}}>{m}</span>
-              ))}
-            </div>
-          )}
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            {priceKg > 0 && (
+              <span style={{fontSize:11,color:'#888'}}>시세 <b style={{color:'#1a1a18'}}>{priceKg.toLocaleString()}원/kg</b></span>
+            )}
+            {meatcos.length > 0 && (
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{fontSize:11,color:'#888'}}>육가공</span>
+                {meatcos.map((m,i)=>(
+                  <span key={i} style={{fontSize:11,fontWeight:500,color:'#085041',background:'#E1F5EE',padding:'1px 8px',borderRadius:99}}>{m}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',fontSize:12}}>
           <span style={{color:'#888'}}>암컷 <b style={{color:'#1a1a18'}}>{female}두</b></span>
