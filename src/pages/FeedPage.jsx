@@ -25,10 +25,11 @@ function pct(val, total) {
   return Math.round((val / total) * 100)
 }
 
-function SectionCard({ section, records, onSave, viewMode, year, month, prevRecords, grandTotal }) {
+function SectionCard({ section, records, onSave, year, month, prevRecords, grandTotal, farmSlug }) {
   const [editing, setEditing] = useState(false)
   const [vals, setVals] = useState({})
   const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState(null)
 
   const getAmt = (feedName, recs) => {
     const r = (recs||records).find(r => r.section===section.key && r.feed_name===feedName)
@@ -42,20 +43,27 @@ function SectionCard({ section, records, onSave, viewMode, year, month, prevReco
     section.feeds.forEach(f => { init[f] = getAmt(f) || '' })
     setVals(init)
     setEditing(true)
+    setSaveStatus(null)
   }
 
   async function handleSave() {
-    setSaving(true)
+    setSaving(true); setSaveStatus(null)
+    let hasError = false
     for (const feedName of section.feeds) {
       const amt = parseFloat(vals[feedName]) || 0
-      await supabase.from('feed_records').upsert({
-        farm_slug: 'admin', year, month,
+      const { error } = await supabase.from('feed_records').upsert({
+        farm_slug: farmSlug, year, month,
         section: section.key, feed_name: feedName, amount_kg: amt
       }, { onConflict: 'farm_slug,year,month,section,feed_name' })
+      if (error) { hasError = true; console.error(error) }
     }
     setSaving(false)
-    setEditing(false)
-    onSave()
+    if (!hasError) {
+      setEditing(false)
+      onSave()
+    } else {
+      setSaveStatus('❌ 저장 실패. Supabase 연결을 확인해주세요.')
+    }
   }
 
   return (
@@ -112,15 +120,18 @@ function SectionCard({ section, records, onSave, viewMode, year, month, prevReco
       })}
 
       {editing && (
-        <div style={{display:'flex',gap:8,marginTop:4}}>
-          <button onClick={handleSave} disabled={saving}
-            style={{flex:1,padding:'8px',background:'#1D9E75',color:'white',border:'none',borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
-            {saving?'저장 중...':'저장'}
-          </button>
-          <button onClick={()=>setEditing(false)}
-            style={{padding:'8px 16px',background:'white',border:'0.5px solid rgba(0,0,0,0.12)',borderRadius:8,fontSize:13,cursor:'pointer',fontFamily:'inherit',color:'#555'}}>
-            취소
-          </button>
+        <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:4}}>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={handleSave} disabled={saving}
+              style={{flex:1,padding:'8px',background:'#1D9E75',color:'white',border:'none',borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
+              {saving?'저장 중...':'저장'}
+            </button>
+            <button onClick={()=>setEditing(false)}
+              style={{padding:'8px 16px',background:'white',border:'0.5px solid rgba(0,0,0,0.12)',borderRadius:8,fontSize:13,cursor:'pointer',fontFamily:'inherit',color:'#555'}}>
+              취소
+            </button>
+          </div>
+          {saveStatus && <div style={{fontSize:12,padding:'6px 10px',borderRadius:6,background:'#FCEBEB',color:'#A32D2D'}}>{saveStatus}</div>}
         </div>
       )}
     </div>
@@ -249,7 +260,24 @@ export default function FeedPage({ farmSlug }) {
   const [yearRecs, setYearRecs]   = useState([])
   const [loading,  setLoading]    = useState(false)
 
-  useEffect(()=>{ load() },[slug, year, month, viewMode])
+  useEffect(()=>{
+    async function load() {
+      setLoading(true)
+      if (viewMode==='monthly') {
+        const { data:cur  } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',year).eq('month',month)
+        const prevMonth = month===1?12:month-1
+        const prevYear  = month===1?year-1:year
+        const { data:prev } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',prevYear).eq('month',prevMonth)
+        setRecords(cur||[])
+        setPrevRecs(prev||[])
+      } else {
+        const { data:yr } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',year)
+        setYearRecs(yr||[])
+      }
+      setLoading(false)
+    }
+    load()
+  },[slug, year, month, viewMode])
 
   async function load() {
     setLoading(true)
@@ -304,8 +332,8 @@ export default function FeedPage({ farmSlug }) {
             ,0)
             return (
               <SectionCard key={section.key} section={section} records={records}
-                onSave={load} viewMode={viewMode} year={year} month={month}
-                prevRecords={prevRecs} grandTotal={grandTotal}/>
+                onSave={load} year={year} month={month}
+                prevRecords={prevRecs} grandTotal={grandTotal} farmSlug={slug}/>
             )
           })}
           <CompareCard records={records} prevRecords={prevRecs} month={month}/>
