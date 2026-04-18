@@ -42,13 +42,31 @@ export function parseExcel(arrayBuffer) {
   }
 
   const idx = {
-    id:    find('거래처개체번호', '개체번호'),
-    sex:   findSex(),
-    lw:    find('생체중'),
-    cw:    find('도체중'),
-    bf:    find('등지방'),
-    price: find('생돈대'),
-    date:  find('출하일', '날짜', '일자'),
+    id:     find('거래처개체번호', '개체번호'),
+    sex:    findSex(),
+    lw:     find('생체중'),
+    cw:     find('도체중'),
+    bf:     find('등지방'),
+    price:  find('생돈대'),
+    date:   find('출하일', '날짜', '일자'),
+    meatco: find('육가공업체명', '육가공업체', '육가공'),
+  }
+
+  // Row3에서 육가공 업체명 + 시세/kg 읽기
+  let sheetMeatco = ''
+  let sheetPriceKg = 0
+  for (let i = 0; i < Math.min(headerRow, json.length); i++) {
+    const row = json[i]
+    for (let ci = 0; ci < row.length; ci++) {
+      const h = String(row[ci]).trim().replace(/\s/g, '')
+      if (h.includes('육가공') && !sheetMeatco) {
+        sheetMeatco = String(row[ci+2] || row[ci+1] || '').trim()
+      }
+      if ((h.includes('시세') || h.includes('원/kg')) && !sheetPriceKg) {
+        const val = parseFloat(row[ci+2] || row[ci+1] || 0)
+        if (!isNaN(val)) sheetPriceKg = val
+      }
+    }
   }
 
   let sheetDate = new Date().toISOString().slice(0, 10)
@@ -69,16 +87,17 @@ export function parseExcel(arrayBuffer) {
     const sex = rawSex === '암' || rawSex.startsWith('암') ? '암' : rawSex.includes('거세') ? '거세' : rawSex
 
     rows.push({
-      date:  dateVal,
-      id:    idx.id    !== undefined ? String(row[idx.id]    ?? '').trim() : '',
+      date:   dateVal,
+      id:     idx.id    !== undefined ? String(row[idx.id]    ?? '').trim() : '',
       sex,
-      lw:    parseFloat(row[idx.lw]    ?? '') || 0,
+      lw:     parseFloat(row[idx.lw]    ?? '') || 0,
       cw,
       bf,
-      price: parseFloat(row[idx.price] ?? '') || 0,
+      price:  parseFloat(row[idx.price] ?? '') || 0,
+      meatco: idx.meatco !== undefined ? String(row[idx.meatco] ?? '').trim() : sheetMeatco,
     })
   }
 
   if (!rows.length) throw new Error('유효한 데이터가 없습니다.')
-  return { rows, sheetDate }
+  return { rows, sheetDate, sheetMeatco, sheetPriceKg }
 }
