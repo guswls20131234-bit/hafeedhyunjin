@@ -38,7 +38,7 @@ export default function ScatterChart({ data }) {
 
     const points = data.map(d => ({
       x: d.cw, y: d.bf,
-      id: d.id, sex: d.sex, lw: d.lw, price: d.price, date: d.date,
+      id: d.pig_id, sex: d.sex, lw: d.lw, price: d.price, date: d.date,
       plus: isGradePlus(d.cw, d.bf)
     }))
 
@@ -81,7 +81,7 @@ function customTT(context, ttRef, wrapRef) {
   if (context.tooltip.opacity === 0) { tt.style.display = 'none'; return }
   const dp = context.tooltip.dataPoints?.[0]; if (!dp) return
   const r = dp.raw
-  tt.querySelector('#tt-title-inner').textContent = (r.id || '개체') + ' · ' + r.date
+  tt.querySelector('#tt-title-inner').textContent = (r.pig_id || '개체') + ' · ' + r.date
   tt.querySelector('#tt-body-inner').innerHTML =
     `도체중: <b>${r.x} kg</b><br>등지방: <b>${r.y} mm</b>` +
     (r.lw    ? `<br>생체중: <b>${Number(r.lw).toFixed(1)} kg</b>` : '') +
