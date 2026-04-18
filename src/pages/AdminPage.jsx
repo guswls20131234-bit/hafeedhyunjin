@@ -18,7 +18,7 @@ function gradeLabel(cw,bf){
 function DetailTable({ data }) {
   const [open, setOpen] = useState(false)
   if (!data.length) return null
-  const sorted = [...data].sort((a,b)=>String(a.id||'').localeCompare(String(b.id||'')))
+  const sorted = [...data].sort((a,b)=>String(a.pig_id||'').localeCompare(String(b.pig_id||'')))
   return (
     <div style={{marginTop:12}}>
       <button onClick={()=>setOpen(v=>!v)}
@@ -43,7 +43,7 @@ function DetailTable({ data }) {
                 const g=gradeLabel(d.cw,d.bf)
                 return (
                   <tr key={i} style={{borderBottom:'0.5px solid rgba(0,0,0,0.07)',background:i%2===0?'#fff':'#fafafa'}}>
-                    <td style={{padding:'8px 12px',fontWeight:500}}>{d.id||'—'}</td>
+                    <td style={{padding:'8px 12px',fontWeight:500}}>{d.pig_id||'—'}</td>
                     <td style={{padding:'8px 12px'}}>{d.sex||'—'}</td>
                     <td style={{padding:'8px 12px'}}>{d.lw?Number(d.lw).toFixed(1):'—'}</td>
                     <td style={{padding:'8px 12px'}}>{Number(d.cw).toFixed(1)}</td>
