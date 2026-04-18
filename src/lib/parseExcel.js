@@ -88,7 +88,7 @@ export function parseExcel(arrayBuffer) {
 
     rows.push({
       date:   dateVal,
-      id:     idx.id    !== undefined ? String(row[idx.id]    ?? '').trim() : '',
+      pig_id: idx.id    !== undefined ? String(row[idx.id]    ?? '').trim() : '',
       sex,
       lw:     parseFloat(row[idx.lw]    ?? '') || 0,
       cw,
