@@ -3,8 +3,65 @@ import { supabase } from '../lib/supabase'
 import { parseExcel } from '../lib/parseExcel'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
+import FeedPage from './FeedPage'
 
 const ADMIN_PASSWORD = '1234'
+
+function isGradePlus(cw,bf){ return cw>=83&&cw<93&&bf>=17&&bf<25 }
+function gradeLabel(cw,bf){
+  if(isGradePlus(cw,bf)) return {text:'1등급+',color:'#A32D2D',bg:'#FCEBEB'}
+  if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))
+    return {text:'1등급',color:'#0C447C',bg:'#E6F1FB'}
+  return {text:'등외',color:'#5F5E5A',bg:'#F1EFE8'}
+}
+
+function DetailTable({ data }) {
+  const [open, setOpen] = useState(false)
+  if (!data.length) return null
+  const sorted = [...data].sort((a,b)=>String(a.id||'').localeCompare(String(b.id||'')))
+  return (
+    <div style={{marginTop:12}}>
+      <button onClick={()=>setOpen(v=>!v)}
+        style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',
+          padding:'10px 14px',background:'#F5F6F4',border:'0.5px solid rgba(0,0,0,0.10)',
+          borderRadius:8,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:500,color:'#1a1a18'}}>
+        <span>개체별 보기 ({data.length}두)</span>
+        <span style={{fontSize:11,color:'#888',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+      </button>
+      {open&&(
+        <div style={{marginTop:8,overflowX:'auto',borderRadius:8,border:'0.5px solid rgba(0,0,0,0.10)'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,minWidth:520}}>
+            <thead>
+              <tr style={{background:'#F5F6F4'}}>
+                {['개체번호','암수','생체중(kg)','도체중(kg)','등지방(mm)','생돈대(원)','등급'].map(h=>(
+                  <th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:500,color:'#6b6b68',borderBottom:'0.5px solid rgba(0,0,0,0.10)',whiteSpace:'nowrap'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((d,i)=>{
+                const g=gradeLabel(d.cw,d.bf)
+                return (
+                  <tr key={i} style={{borderBottom:'0.5px solid rgba(0,0,0,0.07)',background:i%2===0?'#fff':'#fafafa'}}>
+                    <td style={{padding:'8px 12px',fontWeight:500}}>{d.id||'—'}</td>
+                    <td style={{padding:'8px 12px'}}>{d.sex||'—'}</td>
+                    <td style={{padding:'8px 12px'}}>{d.lw?Number(d.lw).toFixed(1):'—'}</td>
+                    <td style={{padding:'8px 12px'}}>{Number(d.cw).toFixed(1)}</td>
+                    <td style={{padding:'8px 12px'}}>{Number(d.bf).toFixed(1)}</td>
+                    <td style={{padding:'8px 12px'}}>{d.price?Number(d.price).toLocaleString()+'원':'—'}</td>
+                    <td style={{padding:'8px 12px'}}>
+                      <span style={{fontSize:11,padding:'2px 8px',borderRadius:99,fontWeight:500,background:g.bg,color:g.color}}>{g.text}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function slugify(owner, name) {
   const str = (owner + name).toLowerCase().replace(/\s+/g,'')
@@ -15,25 +72,45 @@ function Stats({ data, filter, mode }) {
   if (!data.length) return null
   const avgCw    = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
   const avgBf    = (data.reduce((a,d)=>a+d.bf,0)/data.length).toFixed(1)
+  const avgLw    = data.filter(d=>d.lw>0).length > 0
+    ? (data.filter(d=>d.lw>0).reduce((a,d)=>a+d.lw,0) / data.filter(d=>d.lw>0).length).toFixed(1)
+    : null
+  const dressingPct = avgLw
+    ? ((parseFloat(avgCw) / parseFloat(avgLw)) * 100).toFixed(1)
+    : null
   const plus     = data.filter(d=>d.cw>=83&&d.cw<93&&d.bf>=17&&d.bf<25).length
   const female   = data.filter(d=>d.sex==='암').length
   const castrate = data.filter(d=>d.sex==='거세').length
   const total    = female+castrate
   const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
+  const meatcos = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
   return (
     <>
       <div className="stat-grid">
+        <div className="stat-box"><div className="stat-label">평균 생체중</div><div><span className="stat-val">{avgLw??'—'}</span><span className="stat-unit">{avgLw?' kg':''}</span></div></div>
         <div className="stat-box"><div className="stat-label">평균 도체중</div><div><span className="stat-val">{avgCw}</span><span className="stat-unit">kg</span></div></div>
         <div className="stat-box"><div className="stat-label">평균 등지방</div><div><span className="stat-val">{avgBf}</span><span className="stat-unit">mm</span></div></div>
+        <div className="stat-box"><div className="stat-label">지육율</div><div><span className="stat-val">{dressingPct??'—'}</span><span className="stat-unit">{dressingPct?' %':''}</span></div></div>
         <div className="stat-box"><div className="stat-label">총 출하 두수</div><div><span className="stat-val">{data.length}</span><span className="stat-unit">두</span></div></div>
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
       </div>
-      <div className="sex-bar">
-        <b style={{color:'#1a1a18'}}>{dateLabel}</b>
-        <span style={{color:'rgba(0,0,0,0.15)'}}>|</span>
-        <span>암컷</span><b>{female}두</b>
-        <span>거세</span><b>{castrate}두</b>
-        <span>암컷 비율</span><b style={{color:'#185FA5'}}>{total>0?((female/total)*100).toFixed(1)+'%':'—'}</b>
+      <div style={{background:'#F5F6F4',borderRadius:7,padding:'8px 12px',marginBottom:10}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom:meatcos.length?5:0}}>
+          <div style={{fontSize:12,fontWeight:700,color:'#1a1a18'}}>{dateLabel}</div>
+          {meatcos.length > 0 && (
+            <div style={{display:'flex',alignItems:'center',gap:5}}>
+              <span style={{fontSize:11,color:'#888'}}>육가공</span>
+              {meatcos.map((m,i)=>(
+                <span key={i} style={{fontSize:11,fontWeight:500,color:'#085041',background:'#E1F5EE',padding:'1px 8px',borderRadius:99}}>{m}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',fontSize:12}}>
+          <span style={{color:'#888'}}>암컷 <b style={{color:'#1a1a18'}}>{female}두</b></span>
+          <span style={{color:'#888'}}>거세 <b style={{color:'#1a1a18'}}>{castrate}두</b></span>
+          <span style={{color:'#888'}}>암컷 비율 <b style={{color:'#185FA5'}}>{total>0?((female/total)*100).toFixed(1)+'%':'—'}</b></span>
+        </div>
       </div>
     </>
   )
@@ -43,6 +120,7 @@ export default function AdminPage() {
   const [authed,         setAuthed]         = useState(false)
   const [pw,             setPw]             = useState('')
   const [pwErr,          setPwErr]          = useState(false)
+  const [tab,            setTab]            = useState('shipment')
   const [farms,          setFarms]          = useState([])
   const [selFarm,        setSelFarm]        = useState(null)
   const [farmsLoading,   setFarmsLoading]   = useState(true)
@@ -118,8 +196,8 @@ export default function AdminPage() {
     setLoading(true); setStatus(null)
     try {
       const buf = await file.arrayBuffer()
-      const { rows, sheetDate } = parseExcel(buf)
-      const inserts = rows.map(r=>({...r,farm_slug:selFarm.slug,farm_name:selFarm.name,owner:selFarm.owner}))
+      const { rows, sheetDate, sheetMeatco } = parseExcel(buf)
+      const inserts = rows.map(r=>({...r, farm_slug:selFarm.slug, farm_name:selFarm.name, owner:selFarm.owner, meatco: r.meatco || sheetMeatco || ''}))
       const { error } = await supabase.from('shipments').insert(inserts)
       if(error) throw new Error(error.message)
       const f=rows.filter(d=>d.sex==='암').length, c=rows.filter(d=>d.sex==='거세').length
@@ -174,6 +252,22 @@ export default function AdminPage() {
         <div><div className="farm-name">관리자 대시보드</div><div className="farm-sub">양돈 출하 성적 관리</div></div>
       </div>
     </div>
+
+    {/* 상단 탭 메뉴 */}
+    <div style={{display:'flex',gap:2,background:'white',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:10,padding:4,marginBottom:14}}>
+      {[{key:'shipment',label:'출하성적'},{key:'feed',label:'사료현황'}].map(t=>(
+        <button key={t.key} onClick={()=>setTab(t.key)}
+          style={{flex:1,padding:'8px 4px',border:'none',borderRadius:7,cursor:'pointer',fontFamily:'inherit',
+            fontSize:13,fontWeight:500,transition:'all 0.15s',
+            background:tab===t.key?'#1D9E75':'transparent',
+            color:tab===t.key?'white':'#888'}}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+
+    {tab==='feed' && <FeedPage farmSlug={selFarm?.slug||'admin'}/>}
+    {tab==='shipment' && (<>
 
     {/* 거래처 목록 + 추가 */}
     <div className="card" style={{marginBottom:14}}>
@@ -305,8 +399,10 @@ export default function AdminPage() {
             <div className="leg-item"><div className="leg-rect" style={{background:'rgba(210,40,40,0.10)',border:'2px solid rgba(210,40,40,0.7)'}}></div>1등급+</div>
             <div className="leg-item"><div className="leg-rect" style={{background:'rgba(55,138,221,0.08)',border:'2px solid rgba(55,138,221,0.6)'}}></div>1등급</div>
           </div>
+          <DetailTable data={filtered}/>
         </div>
       )}
+    </>)}
     </>)}
   </div>
   <Footer/>
