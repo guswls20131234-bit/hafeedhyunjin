@@ -227,9 +227,6 @@ export default function IntroPage() {
           <a href="tel:01033385512" style={{display:'block',background:'#1D9E75',color:'white',borderRadius:12,padding:'14px',fontSize:15,fontWeight:700,textDecoration:'none',marginBottom:8,boxShadow:'0 4px 16px rgba(29,158,117,0.25)'}}>
             📞 010-3338-5512
           </a>
-          <a href="tel:05598967800" style={{display:'block',background:'white',color:'#555',borderRadius:12,padding:'13px',fontSize:13,fontWeight:500,textDecoration:'none',marginBottom:8,border:'0.5px solid rgba(0,0,0,0.10)'}}>
-            ☎ 055-986-7800 (사무실)
-          </a>
           <a href="mailto:hjpark94@hafeed.com" style={{display:'block',background:'white',color:'#555',borderRadius:12,padding:'13px',fontSize:13,fontWeight:500,textDecoration:'none',border:'0.5px solid rgba(0,0,0,0.10)'}}>
             ✉ hjpark94@hafeed.com
           </a>
