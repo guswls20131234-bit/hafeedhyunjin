@@ -4,7 +4,7 @@ import { parseExcel } from '../lib/parseExcel'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 import FeedPage from './FeedPage'
-import MeetingForm from '../components/MeetingForm'
+import MeetingForm, { GYEONGNAM_CITIES } from '../components/MeetingForm'
 import HistoryList from '../components/HistoryList'
 import ReportView from '../components/ReportView'
 import { formToDb, dbToForm } from '../lib/mapping'
@@ -133,7 +133,9 @@ export default function AdminPage() {
   const [tab,            setTab]            = useState('shipment')
 
   // 영업관리 state
-  const [salesView,      setSalesView]      = useState('history') // 'form'|'history'|'report'
+  const [salesView,      setSalesView]      = useState('history')
+  const [salesCityFilter,setSalesCityFilter]= useState('')
+  const [salesTypeFilter,setSalesTypeFilter]= useState('') // 'form'|'history'|'report'
   const [salesForm,      setSalesForm]      = useState({})
   const [salesEditId,    setSalesEditId]    = useState(null)
   const [salesHistory,   setSalesHistory]   = useState([])
@@ -353,7 +355,7 @@ export default function AdminPage() {
         ) : (
           <>
             {/* 히스토리 헤더 */}
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <div style={{fontSize:14,fontWeight:700,color:'#1a1a18'}}>
                 미팅 히스토리 <span style={{fontWeight:400,fontSize:12,color:'#888'}}>({salesHistory.length}건)</span>
               </div>
@@ -362,6 +364,39 @@ export default function AdminPage() {
                 + 새 미팅
               </button>
             </div>
+
+            {/* 필터 */}
+            {salesHistory.length > 0 && (
+              <div style={{background:'white',borderRadius:10,padding:'12px 14px',marginBottom:12,border:'0.5px solid rgba(0,0,0,0.08)'}}>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+                  <span style={{fontSize:11,color:'#888',alignSelf:'center',flexShrink:0}}>구분</span>
+                  {['전체','양돈장','대리점'].map(t=>(
+                    <button key={t} onClick={()=>setSalesTypeFilter(t==='전체'?'':t)}
+                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',
+                        background:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'#1a4a2e':'#F5F6F4',
+                        color:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'white':'#555',
+                        border:'none'}}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  <span style={{fontSize:11,color:'#888',alignSelf:'center',flexShrink:0}}>지역</span>
+                  <button onClick={()=>setSalesCityFilter('')}
+                    style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',
+                      background:!salesCityFilter?'#1a4a2e':'#F5F6F4',
+                      color:!salesCityFilter?'white':'#555',border:'none'}}>전체</button>
+                  {GYEONGNAM_CITIES.filter(c=>salesHistory.some(r=>r.location===c)).map(c=>(
+                    <button key={c} onClick={()=>setSalesCityFilter(c)}
+                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',
+                        background:salesCityFilter===c?'#1a4a2e':'#F5F6F4',
+                        color:salesCityFilter===c?'white':'#555',border:'none'}}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {salesLoading ? (
               <div style={{textAlign:'center',padding:'40px',color:'#aaa',fontSize:13}}>불러오는 중...</div>
@@ -376,7 +411,15 @@ export default function AdminPage() {
               </div>
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {salesHistory.map(row=>{
+                {salesHistory
+                  .filter(r=>!salesCityFilter || r.location===salesCityFilter)
+                  .filter(r=>!salesTypeFilter || r.farm_type_custom===salesTypeFilter || r.farm_name?.includes(salesTypeFilter))
+                  .filter(r=>{
+                    if(!salesTypeFilter) return true
+                    // b0 필드가 DB에 없어서 farm_scale이나 memo에서 유추 — 일단 전체 표시
+                    return true
+                  })
+                  .map(row=>{
                   const pos = !row.possibility?{label:'-',color:'#999',bg:'#f5f5f5'}:
                     row.possibility.includes('90%')?{label:'HIGH',color:'#1a7a1a',bg:'#e8f5e8'}:
                     row.possibility.includes('60')?{label:'MED-HIGH',color:'#5a6a00',bg:'#f5f5e0'}:
@@ -386,8 +429,17 @@ export default function AdminPage() {
                     <div key={row.id} style={{background:'white',borderRadius:12,border:'0.5px solid rgba(0,0,0,0.08)',padding:'14px 16px'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                         <div>
-                          <div style={{fontWeight:700,fontSize:14,color:'#1a1a18'}}>{row.farm_name||'(농장명 미입력)'}</div>
-                          <div style={{fontSize:11,color:'#888',marginTop:2}}>{[row.location,row.meeting_date].filter(Boolean).join(' · ')}</div>
+                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                            <span style={{fontWeight:700,fontSize:14,color:'#1a1a18'}}>{row.farm_name||'(농장명 미입력)'}</span>
+                            {row.customer_type && (
+                              <span style={{fontSize:10,padding:'1px 7px',borderRadius:99,fontWeight:600,
+                                background:row.customer_type==='대리점'?'#E6F1FB':'#E1F5EE',
+                                color:row.customer_type==='대리점'?'#0C447C':'#085041'}}>
+                                {row.customer_type}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{fontSize:11,color:'#888'}}>{[row.location,row.meeting_date].filter(Boolean).join(' · ')}</div>
                         </div>
                         <span style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:6,background:pos.bg,color:pos.color,border:`1.5px solid ${pos.color}`,whiteSpace:'nowrap'}}>{pos.label}</span>
                       </div>
