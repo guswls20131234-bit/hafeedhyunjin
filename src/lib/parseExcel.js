@@ -18,36 +18,33 @@ function parseDateVal(v) {
 // ── 생돈 구매 정산서 파싱 ──────────────────────────────
 function parseJeongSanSeo(json) {
   let sheetDate   = new Date().toISOString().slice(0, 10)
+  // Row3에서 육가공 업체명 + 시세/kg 읽기
   let sheetMeatco = ''
   let sheetPriceKg = 0
 
-  // Row4(index 3)에서 입고일자, 출하육가공 읽기
-  const row4 = json[3] || []
-  for (let ci = 0; ci < row4.length; ci++) {
-    const h = String(row4[ci] || '').trim().replace(/\s/g,'')
-    if (h.includes('입고') && !sheetDate.startsWith('20')) {
-      for (let k = ci+1; k < Math.min(ci+10, row4.length); k++) {
-        const d = parseDateVal(row4[k])
-        if (d) { sheetDate = d; break }
+  // 상위 10행 스캔: 입고일자, 출하육가공, 전국단가
+  for (let i = 0; i < Math.min(10, json.length); i++) {
+    const row = json[i]
+    for (let ci = 0; ci < row.length; ci++) {
+      const h = String(row[ci] || '').trim().replace(/\s/g,'')
+      // 날짜
+      if (!sheetDate || sheetDate === new Date().toISOString().slice(0,10)) {
+        const d = parseDateVal(row[ci])
+        if (d) sheetDate = d
       }
-    }
-    if (h.startsWith('2026') || h.startsWith('2025') || h.startsWith('2024')) {
-      const d = parseDateVal(row4[ci])
-      if (d) sheetDate = d
-    }
-    if (h.includes('출하육가공') || (h.includes('육가공') && !h.includes('감량'))) {
-      for (let k = ci+1; k < Math.min(ci+10, row4.length); k++) {
-        const v = String(row4[k] || '').trim()
-        if (v && !v.replace(/\s/g,'').includes('육가공') && v.length > 1) { sheetMeatco = v; break }
+      // 육가공
+      if ((h.includes('출하육가공') || (h.includes('육가공') && !h.includes('감량'))) && !sheetMeatco) {
+        for (let k = ci+1; k < Math.min(ci+10, row.length); k++) {
+          const v = String(row[k] || '').trim()
+          if (v && !v.replace(/\s/g,'').includes('육가공') && v.length > 1) { sheetMeatco = v; break }
+        }
       }
-    }
-  }
-  // 날짜 fallback: 모든 상위 행에서 찾기
-  if (!sheetDate || sheetDate === new Date().toISOString().slice(0,10)) {
-    outer: for (let i = 0; i < Math.min(8, json.length); i++) {
-      for (const v of json[i]) {
-        const d = parseDateVal(v)
-        if (d) { sheetDate = d; break outer }
+      // 전국단가 (김기룡 스타일)
+      if (h.includes('전국단가') && !sheetPriceKg) {
+        for (let k = ci+1; k < Math.min(ci+6, row.length); k++) {
+          const val = parseFloat(row[k])
+          if (!isNaN(val) && val > 1000) { sheetPriceKg = val; break }
+        }
       }
     }
   }
@@ -98,10 +95,12 @@ function parseJeongSanSeo(json) {
     })
   }
 
-  // 시세/kg 자동 계산
-  const totalPrice = rows.reduce((a,r) => a + r.price, 0)
-  const totalCw    = rows.reduce((a,r) => a + r.cw, 0)
-  if (totalCw > 0) sheetPriceKg = Math.round(totalPrice / totalCw)
+  // 전국단가 없으면 생돈대÷도체중 평균으로 계산
+  if (!sheetPriceKg) {
+    const totalPrice = rows.reduce((a,r) => a + r.price, 0)
+    const totalCw    = rows.reduce((a,r) => a + r.cw, 0)
+    if (totalCw > 0) sheetPriceKg = Math.round(totalPrice / totalCw)
+  }
 
   if (!rows.length) throw new Error('정산서에서 데이터를 찾을 수 없습니다.')
   return { rows, sheetDate, sheetMeatco, sheetPriceKg }
