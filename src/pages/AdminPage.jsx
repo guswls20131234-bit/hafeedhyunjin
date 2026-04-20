@@ -342,16 +342,22 @@ export default function AdminPage() {
         {salesView==='report' && salesReport ? (
           <ReportView data={salesReport.data} onBack={()=>setSalesView(salesPrevView)}/>
         ) : salesView==='form' ? (
-          <MeetingForm
-            formData={salesForm}
-            editingId={salesEditId}
-            saving={salesSaving}
-            saveStatus={salesStatus}
-            onChange={(id,val)=>setSalesForm(prev=>({...prev,[id]:val}))}
-            onSave={handleSalesSave}
-            onNew={()=>{ setSalesForm({}); setSalesEditId(null) }}
-            onReport={()=>{ setSalesReport({data:salesForm}); setSalesPrevView('form'); setSalesView('report') }}
-          />
+          <>
+            <button onClick={()=>setSalesView('history')}
+              style={{display:'flex',alignItems:'center',gap:6,background:'white',border:'0.5px solid rgba(0,0,0,0.12)',borderRadius:8,padding:'7px 14px',fontSize:13,color:'#555',cursor:'pointer',fontFamily:'inherit',marginBottom:10}}>
+              ← 목록으로
+            </button>
+            <MeetingForm
+              formData={salesForm}
+              editingId={salesEditId}
+              saving={salesSaving}
+              saveStatus={salesStatus}
+              onChange={(id,val)=>setSalesForm(prev=>({...prev,[id]:val}))}
+              onSave={handleSalesSave}
+              onNew={()=>{ setSalesForm({}); setSalesEditId(null) }}
+              onReport={()=>{ setSalesReport({data:salesForm}); setSalesPrevView('form'); setSalesView('report') }}
+            />
+          </>
         ) : (
           <>
             {/* 히스토리 헤더 */}
