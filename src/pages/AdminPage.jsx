@@ -89,6 +89,7 @@ function Stats({ data, filter, mode }) {
   const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
   const meatcos = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
   const priceKg = data.find(d=>d.price_kg>0)?.price_kg || 0
+  const totalPrice = data.reduce((a,d)=>a+(Number(d.price)||0),0)
   return (
     <>
       <div className="stat-grid">
@@ -98,6 +99,12 @@ function Stats({ data, filter, mode }) {
         <div className="stat-box"><div className="stat-label">지육율</div><div><span className="stat-val">{dressingPct??'—'}</span><span className="stat-unit">{dressingPct?' %':''}</span></div></div>
         <div className="stat-box"><div className="stat-label">총 출하 두수</div><div><span className="stat-val">{data.length}</span><span className="stat-unit">두</span></div></div>
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
+        {totalPrice > 0 && (
+          <div className="stat-box" style={{gridColumn:'1/-1',background:'#E1F5EE',border:'0.5px solid rgba(29,158,117,0.2)'}}>
+            <div className="stat-label" style={{color:'#085041'}}>생돈대 합계</div>
+            <div><span className="stat-val" style={{color:'#085041',fontSize:20}}>{totalPrice.toLocaleString()}</span><span className="stat-unit" style={{color:'#085041'}}>원</span></div>
+          </div>
+        )}
       </div>
       <div style={{background:'#F5F6F4',borderRadius:7,padding:'8px 12px',marginBottom:10}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom:5}}>
@@ -267,8 +274,25 @@ export default function AdminPage() {
     setLoading(true); setStatus(null)
     try {
       const buf = await file.arrayBuffer()
-      const { rows, sheetDate, sheetMeatco, sheetPriceKg } = parseExcel(buf)
-      const inserts = rows.map(r=>({...r, farm_slug:selFarm.slug, farm_name:selFarm.name, owner:selFarm.owner, meatco: r.meatco || sheetMeatco || '', price_kg: sheetPriceKg || 0}))
+      const { rows, sheetDate, sheetMeatco, sheetPriceKg, settlement } = parseExcel(buf)
+      const s = settlement || {}
+      const inserts = rows.map((r,i)=>({
+        ...r,
+        farm_slug: selFarm.slug, farm_name: selFarm.name, owner: selFarm.owner,
+        meatco: r.meatco || sheetMeatco || '',
+        price_kg: sheetPriceKg || 0,
+        // 정산 항목은 모든 행에 저장 (나중에 연동 편하게)
+        total_price:    s.total_price    || 0,
+        jojogeum:       s.jojogeum       || 0,
+        total_paid:     s.total_paid     || 0,
+        grade_bonus:    s.grade_bonus    || 0,
+        deduct_samgyup: s.deduct_samgyup || 0,
+        deduct_moksim:  s.deduct_moksim  || 0,
+        deduct_fat:     s.deduct_fat     || 0,
+        deduct_weight:  s.deduct_weight  || 0,
+        deduct_grade:   s.deduct_grade   || 0,
+        deduct_huji:    s.deduct_huji    || 0,
+      }))
       const { error } = await supabase.from('shipments').insert(inserts)
       if(error) throw new Error(error.message)
       const f=rows.filter(d=>d.sex==='암').length, c=rows.filter(d=>d.sex==='거세').length
