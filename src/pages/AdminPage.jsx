@@ -392,7 +392,7 @@ export default function AdminPage() {
                         <span style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:6,background:pos.bg,color:pos.color,border:`1.5px solid ${pos.color}`,whiteSpace:'nowrap'}}>{pos.label}</span>
                       </div>
                       <div style={{fontSize:12,color:'#666',marginBottom:10}}>{[row.farm_type,row.farm_scale,row.expected_volume?`예상: ${row.expected_volume}`:''].filter(Boolean).join(' · ')}</div>
-                      <div style={{display:'flex',gap:6',flexWrap:'wrap'}}>
+                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                         <button onClick={()=>{ setSalesReport({data:dbToForm(row),raw:row}); setSalesPrevView('history'); setSalesView('report') }}
                           style={{flex:1,minWidth:70,background:'#1D9E75',color:'white',border:'none',borderRadius:7,padding:'7px 0',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>📋 보고서</button>
                         <button onClick={()=>{ setSalesForm(dbToForm(row)); setSalesEditId(row.id); setSalesView('form') }}
