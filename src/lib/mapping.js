@@ -2,6 +2,7 @@
 
 export function formToDb(data) {
   return {
+    customer_type:    data.b0 || null,
     farm_name:        data.b1 || null,
     owner_name:       data.b2 || null,
     location:         data.b3 || null,
@@ -47,6 +48,7 @@ export function formToDb(data) {
 
 export function dbToForm(row) {
   return {
+    b0: row.customer_type    || '',
     b1: row.farm_name        || '',
     b2: row.owner_name       || '',
     b3: row.location         || '',
