@@ -134,7 +134,7 @@ export default function IntroPage() {
           <h1 style={{fontSize:26,fontWeight:700,margin:'0 0 4px',letterSpacing:'-0.3px'}}>박현진</h1>
           <p style={{fontSize:13,color:'rgba(255,255,255,0.5)',margin:'0 0 28px'}}>영업과장 · 영업1본부</p>
           <p style={{fontSize:15,lineHeight:1.85,color:'rgba(255,255,255,0.82)',maxWidth:380,margin:'0 auto 32px'}}>
-            저와 거래하시면 <span style={{color:'#5DCAA5',fontWeight:700}}>직접 개발한 양돈 관리 시스템</span>으로<br/>
+            믿어주시면 <span style={{color:'#5DCAA5',fontWeight:700}}>양돈 관리 시스템</span>으로<br/>
             출하 성적을 데이터로 함께 관리해드립니다.
           </p>
           <a href="tel:01033385512" style={{display:'inline-block',background:'#1D9E75',color:'white',borderRadius:10,padding:'12px 36px',fontSize:14,fontWeight:700,textDecoration:'none',boxShadow:'0 4px 16px rgba(29,158,117,0.4)'}}>
