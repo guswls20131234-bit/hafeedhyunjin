@@ -1,12 +1,18 @@
 import { useState } from 'react'
 
+const GYEONGNAM_CITIES = [
+  '창원시','진주시','통영시','사천시','김해시','밀양시','거제시','양산시',
+  '의령군','함안군','창녕군','고성군','남해군','하동군','산청군','함양군','거창군','합천군'
+]
+
 const SECTIONS = [
   {
     id: 'basic', title: '🏢 거래처 기본 정보', color: '#1a4a2e',
     questions: [
+      { id: 'b0', label: '거래처 구분', type: 'select', options: ['양돈장', '대리점'] },
       { id: 'b1', label: '농장명 / 사업체명', type: 'text', placeholder: '예) ○○축산, ○○농장' },
       { id: 'b2', label: '대표자명', type: 'text', placeholder: '성함' },
-      { id: 'b3', label: '소재지 (도/시/군)', type: 'text', placeholder: '예) 경기도 안성시' },
+      { id: 'b3', label: '시/군 (경남)', type: 'gyeongnam' },
       { id: 'b4', label: '농장 운영 형태', type: 'select', options: ['일관경영(모돈+비육)', '번식 전문(모돈)', '비육 전문', '위탁사육', '기타'] },
       { id: 'b5', label: '농장 규모', type: 'text', placeholder: '예) 모돈 200두, 비육 2,000두' },
       { id: 'b6', label: '농장 운영 연수', type: 'text', placeholder: '예) 15년' },
@@ -59,7 +65,7 @@ const SECTIONS = [
     id: 'memo', title: '📝 미팅 총평 및 메모', color: '#2a2a2a',
     questions: [
       { id: 'm1', label: '미팅 일시', type: 'text', placeholder: '예) 2026년 4월 20일 오전 10시' },
-      { id: 'm2', label: '미팅 참석자 (우리 측)', type: 'text', placeholder: '예) 홍길동 과장, 이철수 대리' },
+      { id: 'm2', label: '미팅 참석자 (우리 측)', type: 'text', placeholder: '예) 박현진 과장' },
       { id: 'm3', label: '전체 미팅 분위기 평가', type: 'select', options: ['매우 우호적', '우호적', '보통', '소극적', '부정적'] },
       { id: 'm4', label: '거래 성사 가능성 (자체 평가)', type: 'select', options: ['90% 이상 (High)', '60~90% (Medium-High)', '30~60% (Medium)', '30% 미만 (Low)'] },
       { id: 'm5', label: '차기 액션플랜 및 팔로업 사항', type: 'textarea', placeholder: '예) 다음 주 견적서 발송, 샘플 사료 2톤 지원 검토' },
@@ -68,7 +74,7 @@ const SECTIONS = [
   },
 ]
 
-export { SECTIONS }
+export { SECTIONS, GYEONGNAM_CITIES }
 
 function CheckboxGroup({ options, value = [], onChange }) {
   const toggle = (opt) =>
@@ -85,8 +91,26 @@ function CheckboxGroup({ options, value = [], onChange }) {
   )
 }
 
+function GyeongnamPicker({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {GYEONGNAM_CITIES.map(city => (
+        <button key={city} type="button" onClick={() => onChange(city)}
+          style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: value === city ? 700 : 400,
+            background: value === city ? '#1a4a2e' : '#f5f5f5',
+            color: value === city ? 'white' : '#555',
+            border: value === city ? '1.5px solid #1a4a2e' : '1.5px solid #ddd',
+            cursor: 'pointer', fontFamily: 'inherit' }}>
+          {city}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function Field({ q, value, onChange }) {
   const base = { width: '100%', padding: '9px 12px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, outline: 'none', background: '#fafafa', boxSizing: 'border-box', fontFamily: 'inherit' }
+  if (q.type === 'gyeongnam') return <GyeongnamPicker value={value} onChange={onChange} />
   if (q.type === 'textarea') return <textarea style={{ ...base, minHeight: 80, resize: 'vertical' }} placeholder={q.placeholder} value={value || ''} onChange={(e) => onChange(e.target.value)} />
   if (q.type === 'select') return (
     <select style={{ ...base, cursor: 'pointer' }} value={value || ''} onChange={(e) => onChange(e.target.value)}>
@@ -109,7 +133,7 @@ function FormSection({ sec, data, onChange }) {
       {open && (
         <div style={{ padding: '18px 22px', background: '#fff', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
           {sec.questions.map((q) => (
-            <div key={q.id} style={{ gridColumn: (q.type === 'textarea' || q.type === 'checkboxes') ? '1 / -1' : 'auto' }}>
+            <div key={q.id} style={{ gridColumn: (q.type === 'textarea' || q.type === 'checkboxes' || q.type === 'gyeongnam') ? '1 / -1' : 'auto' }}>
               <label style={{ display: 'block', fontWeight: 600, fontSize: 13, color: sec.color, marginBottom: 5 }}>{q.label}</label>
               <Field q={q} value={data[q.id]} onChange={(v) => onChange(q.id, v)} />
             </div>
@@ -129,7 +153,7 @@ export default function MeetingForm({ formData, editingId, saving, saveStatus, o
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '18px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 10, padding: '12px 18px', marginBottom: 16, boxShadow: '0 1px 6px rgba(0,0,0,0.07)', flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <div style={{ fontSize: 11, color: '#999' }}>{editingId ? '수정 중 (Supabase 저장됨)' : '새 미팅 작성 중'}</div>
+          <div style={{ fontSize: 11, color: '#999' }}>{editingId ? '수정 중' : '새 미팅 작성 중'}</div>
           <div style={{ fontWeight: 800, fontSize: 16, color: '#1a4a2e' }}>{formData.b1 || '농장명을 입력하세요'}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -143,10 +167,6 @@ export default function MeetingForm({ formData, editingId, saving, saveStatus, o
         </div>
       </div>
 
-      <div style={{ background: '#e8f5ee', border: '1.5px solid #2d7a4f', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#1a4a2e' }}>
-        💾 <strong>Supabase 연동</strong> — 저장 버튼을 누르면 DB에 영구 저장됩니다.
-      </div>
-
       {SECTIONS.map((sec) => (
         <FormSection key={sec.id} sec={sec} data={formData} onChange={onChange} />
       ))}
@@ -157,7 +177,7 @@ export default function MeetingForm({ formData, editingId, saving, saveStatus, o
         <button onClick={onSave} disabled={saving} style={{ background: '#2d7a4f', color: '#fff', border: 'none', borderRadius: 8, padding: '11px 22px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, opacity: saving ? 0.7 : 1 }}>
           {saving ? '저장 중...' : '💾 Supabase 저장'}
         </button>
-        <button onClick={onReport} style={{ background: '#1a4a2e', color: '#fff', border: 'none', borderRadius: 8, padding: '11px 28px', cursor: 'pointer', fontWeight: 800, fontSize: 14, boxShadow: '0 4px 14px rgba(26,74,46,0.3)' }}>📋 보고서 생성</button>
+        <button onClick={onReport} style={{ background: '#1a4a2e', color: '#fff', border: 'none', borderRadius: 8, padding: '11px 28px', cursor: 'pointer', fontWeight: 800, fontSize: 14 }}>📋 보고서 생성</button>
       </div>
     </div>
   )
