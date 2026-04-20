@@ -4,6 +4,10 @@ import { parseExcel } from '../lib/parseExcel'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 import FeedPage from './FeedPage'
+import MeetingForm from '../components/MeetingForm'
+import HistoryList from '../components/HistoryList'
+import ReportView from '../components/ReportView'
+import { formToDb, dbToForm } from '../lib/mapping'
 
 const ADMIN_PASSWORD = '1234'
 
@@ -127,6 +131,17 @@ export default function AdminPage() {
   const [pw,             setPw]             = useState('')
   const [pwErr,          setPwErr]          = useState(false)
   const [tab,            setTab]            = useState('shipment')
+
+  // 영업관리 state
+  const [salesView,      setSalesView]      = useState('history') // 'form'|'history'|'report'
+  const [salesForm,      setSalesForm]      = useState({})
+  const [salesEditId,    setSalesEditId]    = useState(null)
+  const [salesHistory,   setSalesHistory]   = useState([])
+  const [salesLoading,   setSalesLoading]   = useState(false)
+  const [salesSaving,    setSalesSaving]    = useState(false)
+  const [salesStatus,    setSalesStatus]    = useState('')
+  const [salesReport,    setSalesReport]    = useState(null)
+  const [salesPrevView,  setSalesPrevView]  = useState('history')
   const [farms,          setFarms]          = useState([])
   const [selFarm,        setSelFarm]        = useState(null)
   const [farmsLoading,   setFarmsLoading]   = useState(true)
@@ -172,6 +187,49 @@ export default function AdminPage() {
   function getLabel(d){ return mode==='daily'?d.date:d.date?.slice(0,7) }
   const filtered = filter==='all'?dbData:dbData.filter(d=>getLabel(d)===filter)
   const labels   = [...new Set(dbData.map(getLabel))].sort().reverse()
+
+  async function loadSalesHistory() {
+    setSalesLoading(true)
+    const { data } = await supabase.from('meetings').select('*').order('created_at', { ascending: false })
+    setSalesHistory(data || [])
+    setSalesLoading(false)
+  }
+
+  async function handleSalesSave() {
+    setSalesSaving(true)
+    const payload = formToDb(salesForm)
+    let error
+    if (salesEditId) {
+      ;({ error } = await supabase.from('meetings').update(payload).eq('id', salesEditId))
+    } else {
+      const { data, error: ie } = await supabase.from('meetings').insert(payload).select().single()
+      error = ie
+      if (!error && data) setSalesEditId(data.id)
+    }
+    setSalesSaving(false)
+    if (error) setSalesStatus('❌ 저장 실패: ' + error.message)
+    else { setSalesStatus('✅ 저장 완료!'); await loadSalesHistory() }
+    setTimeout(() => setSalesStatus(''), 3000)
+  }
+
+  async function handleSalesDelete(id) {
+    if (!window.confirm('이 미팅 기록을 삭제할까요?')) return
+    await supabase.from('meetings').delete().eq('id', id)
+    if (salesEditId === id) { setSalesForm({}); setSalesEditId(null) }
+    await loadSalesHistory()
+  }
+
+  // 거래처로 전환
+  async function handleConvertToFarm(row) {
+    if (!window.confirm(`${row.farm_name}을 거래처로 등록할까요?`)) return
+    const slug = (row.owner_name + row.farm_name).toLowerCase().replace(/\s+/g,'').slice(0,16) + '_' + Date.now().toString().slice(-4)
+    const initial = (row.owner_name || row.farm_name || '?').charAt(0)
+    const { error } = await supabase.from('farms').insert({
+      name: row.farm_name, owner: row.owner_name || '', slug, initial
+    })
+    if (error) alert('등록 실패: ' + error.message)
+    else { alert(`✅ ${row.farm_name} 거래처 등록 완료!\n링크: /farm/${slug}`); loadFarms() }
+  }
 
   function handleLogin(e){
     e.preventDefault()
@@ -265,8 +323,8 @@ export default function AdminPage() {
 
     {/* 상단 탭 메뉴 */}
     <div style={{display:'flex',gap:2,background:'white',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:10,padding:4,marginBottom:14}}>
-      {[{key:'shipment',label:'출하성적'},{key:'feed',label:'사료현황'}].map(t=>(
-        <button key={t.key} onClick={()=>setTab(t.key)}
+      {[{key:'shipment',label:'출하성적'},{key:'feed',label:'사료현황'},{key:'sales',label:'영업관리'}].map(t=>(
+        <button key={t.key} onClick={()=>{ setTab(t.key); if(t.key==='sales') loadSalesHistory() }}
           style={{flex:1,padding:'8px 4px',border:'none',borderRadius:7,cursor:'pointer',fontFamily:'inherit',
             fontSize:13,fontWeight:500,transition:'all 0.15s',
             background:tab===t.key?'#1D9E75':'transparent',
@@ -277,6 +335,82 @@ export default function AdminPage() {
     </div>
 
     {tab==='feed' && <FeedPage farmSlug={selFarm?.slug||'admin'}/>}
+    {tab==='sales' && (
+      <div style={{paddingBottom:'2rem'}}>
+        {salesView==='report' && salesReport ? (
+          <ReportView data={salesReport.data} onBack={()=>setSalesView(salesPrevView)}/>
+        ) : salesView==='form' ? (
+          <MeetingForm
+            formData={salesForm}
+            editingId={salesEditId}
+            saving={salesSaving}
+            saveStatus={salesStatus}
+            onChange={(id,val)=>setSalesForm(prev=>({...prev,[id]:val}))}
+            onSave={handleSalesSave}
+            onNew={()=>{ setSalesForm({}); setSalesEditId(null) }}
+            onReport={()=>{ setSalesReport({data:salesForm}); setSalesPrevView('form'); setSalesView('report') }}
+          />
+        ) : (
+          <>
+            {/* 히스토리 헤더 */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div style={{fontSize:14,fontWeight:700,color:'#1a1a18'}}>
+                미팅 히스토리 <span style={{fontWeight:400,fontSize:12,color:'#888'}}>({salesHistory.length}건)</span>
+              </div>
+              <button onClick={()=>{ setSalesForm({}); setSalesEditId(null); setSalesView('form') }}
+                style={{background:'#1D9E75',color:'white',border:'none',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+                + 새 미팅
+              </button>
+            </div>
+
+            {salesLoading ? (
+              <div style={{textAlign:'center',padding:'40px',color:'#aaa',fontSize:13}}>불러오는 중...</div>
+            ) : salesHistory.length === 0 ? (
+              <div style={{background:'white',borderRadius:12,padding:'40px',textAlign:'center',border:'0.5px solid rgba(0,0,0,0.08)'}}>
+                <div style={{fontSize:32,marginBottom:10}}>📭</div>
+                <div style={{fontSize:13,color:'#aaa',marginBottom:16}}>저장된 미팅 기록이 없습니다.</div>
+                <button onClick={()=>{ setSalesForm({}); setSalesEditId(null); setSalesView('form') }}
+                  style={{background:'#1D9E75',color:'white',border:'none',borderRadius:8,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+                  첫 미팅 작성하기
+                </button>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {salesHistory.map(row=>{
+                  const pos = !row.possibility?{label:'-',color:'#999',bg:'#f5f5f5'}:
+                    row.possibility.includes('90%')?{label:'HIGH',color:'#1a7a1a',bg:'#e8f5e8'}:
+                    row.possibility.includes('60')?{label:'MED-HIGH',color:'#5a6a00',bg:'#f5f5e0'}:
+                    row.possibility.includes('30~60')?{label:'MEDIUM',color:'#a06000',bg:'#fff3e0'}:
+                    {label:'LOW',color:'#a01a1a',bg:'#fde8e8'}
+                  return (
+                    <div key={row.id} style={{background:'white',borderRadius:12,border:'0.5px solid rgba(0,0,0,0.08)',padding:'14px 16px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:14,color:'#1a1a18'}}>{row.farm_name||'(농장명 미입력)'}</div>
+                          <div style={{fontSize:11,color:'#888',marginTop:2}}>{[row.location,row.meeting_date].filter(Boolean).join(' · ')}</div>
+                        </div>
+                        <span style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:6,background:pos.bg,color:pos.color,border:`1.5px solid ${pos.color}`,whiteSpace:'nowrap'}}>{pos.label}</span>
+                      </div>
+                      <div style={{fontSize:12,color:'#666',marginBottom:10}}>{[row.farm_type,row.farm_scale,row.expected_volume?`예상: ${row.expected_volume}`:''].filter(Boolean).join(' · ')}</div>
+                      <div style={{display:'flex',gap:6',flexWrap:'wrap'}}>
+                        <button onClick={()=>{ setSalesReport({data:dbToForm(row),raw:row}); setSalesPrevView('history'); setSalesView('report') }}
+                          style={{flex:1,minWidth:70,background:'#1D9E75',color:'white',border:'none',borderRadius:7,padding:'7px 0',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>📋 보고서</button>
+                        <button onClick={()=>{ setSalesForm(dbToForm(row)); setSalesEditId(row.id); setSalesView('form') }}
+                          style={{flex:1,minWidth:70,background:'#E6F1FB',color:'#0C447C',border:'0.5px solid #B5D4F4',borderRadius:7,padding:'7px 0',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>✏️ 수정</button>
+                        <button onClick={()=>handleConvertToFarm(row)}
+                          style={{flex:1,minWidth:70,background:'#E1F5EE',color:'#085041',border:'0.5px solid #9FE1CB',borderRadius:7,padding:'7px 0',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>🔄 거래처</button>
+                        <button onClick={()=>handleSalesDelete(row.id)}
+                          style={{background:'#FCEBEB',color:'#A32D2D',border:'0.5px solid #F09595',borderRadius:7,padding:'7px 12px',cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>🗑️</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )}
     {tab==='shipment' && (<>
 
     {/* 거래처 목록 + 추가 */}
