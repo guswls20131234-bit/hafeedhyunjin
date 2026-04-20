@@ -14,7 +14,9 @@ const SECTIONS = [
       { id: 'b2', label: '대표자명', type: 'text', placeholder: '성함' },
       { id: 'b3', label: '시/군 (경남)', type: 'gyeongnam' },
       { id: 'b4', label: '농장 운영 형태', type: 'select', options: ['일관경영(모돈+비육)', '번식 전문(모돈)', '비육 전문', '위탁사육', '기타'] },
-      { id: 'b5', label: '농장 규모', type: 'text', placeholder: '예) 모돈 200두, 비육 2,000두' },
+      { id: 'b5a', label: '모돈 수 (두)', type: 'number' },
+      { id: 'b5b', label: '전체 사육 두수 (두)', type: 'number' },
+      { id: 'b8', label: '당사 거래 여부', type: 'select', options: ['거래 중', '과거 거래', '미거래'] },
       { id: 'b6', label: '농장 운영 연수', type: 'text', placeholder: '예) 15년' },
       { id: 'b7', label: '담당자 연락처', type: 'text', placeholder: '전화번호' },
     ],
@@ -139,8 +141,25 @@ function TwoPicker({ value = '', onChange }) {
   )
 }
 
+function NumberInput({ value, onChange, placeholder }) {
+  const display = value ? Number(String(value).replace(/,/g,'')).toLocaleString() : ''
+  return (
+    <input
+      type="text" inputMode="numeric"
+      placeholder={placeholder || '0'}
+      value={display}
+      onChange={e => {
+        const raw = e.target.value.replace(/,/g,'').replace(/[^0-9]/g,'')
+        onChange(raw)
+      }}
+      style={{width:'100%',padding:'9px 12px',border:'1.5px solid #ddd',borderRadius:8,fontSize:14,outline:'none',background:'#fafafa',boxSizing:'border-box',fontFamily:'inherit'}}
+    />
+  )
+}
+
 function Field({ q, value, onChange }) {
   const base = { width: '100%', padding: '9px 12px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, outline: 'none', background: '#fafafa', boxSizing: 'border-box', fontFamily: 'inherit' }
+  if (q.type === 'number')    return <NumberInput value={value} onChange={onChange} placeholder={q.placeholder} />
   if (q.type === 'twopicker') return <TwoPicker value={value} onChange={onChange} />
   if (q.type === 'gyeongnam') return <GyeongnamPicker value={value} onChange={onChange} />
   if (q.type === 'textarea') return <textarea style={{ ...base, minHeight: 80, resize: 'vertical' }} placeholder={q.placeholder} value={value || ''} onChange={(e) => onChange(e.target.value)} />
