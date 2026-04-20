@@ -27,6 +27,7 @@ function Stats({ data, filter, mode }) {
   const female   = data.filter(d=>d.sex==='암').length
   const castrate = data.filter(d=>d.sex==='거세').length
   const total    = female+castrate
+  const totalPrice = data.reduce((a,d)=>a+(Number(d.price)||0),0)
   const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
 
   // 육가공 업체 목록 (중복 제거)
@@ -43,6 +44,12 @@ function Stats({ data, filter, mode }) {
         <div className="stat-box"><div className="stat-label">지육율</div><div><span className="stat-val">{dressingPct??'—'}</span><span className="stat-unit">{dressingPct?' %':''}</span></div></div>
         <div className="stat-box"><div className="stat-label">총 출하 두수</div><div><span className="stat-val">{data.length}</span><span className="stat-unit">두</span></div></div>
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
+        {totalPrice > 0 && (
+          <div className="stat-box" style={{gridColumn:'1/-1',background:'#E1F5EE',border:'0.5px solid rgba(29,158,117,0.2)'}}>
+            <div className="stat-label" style={{color:'#085041'}}>생돈대 합계</div>
+            <div><span className="stat-val" style={{color:'#085041',fontSize:20}}>{totalPrice.toLocaleString()}</span><span className="stat-unit" style={{color:'#085041'}}>원</span></div>
+          </div>
+        )}
       </div>
       <div style={{background:'#F5F6F4',borderRadius:7,padding:'8px 12px',marginBottom:10}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:4,marginBottom:5}}>
@@ -75,6 +82,10 @@ function DetailTable({ data }) {
   const [open, setOpen] = useState(false)
   if (!data.length) return null
   const sorted = [...data].sort((a,b)=>String(a.pig_id||'').localeCompare(String(b.pig_id||'')))
+  const totalPrice = data.reduce((a,d)=>a+(Number(d.price)||0),0)
+  const totalCw    = data.reduce((a,d)=>a+(Number(d.cw)||0),0)
+  const totalLw    = data.filter(d=>d.lw>0).reduce((a,d)=>a+(Number(d.lw)||0),0)
+
   return (
     <div style={{marginTop:12}}>
       <button onClick={()=>setOpen(v=>!v)}
@@ -82,7 +93,10 @@ function DetailTable({ data }) {
           padding:'10px 14px',background:'#F5F6F4',border:'0.5px solid rgba(0,0,0,0.10)',
           borderRadius:8,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:500,color:'#1a1a18'}}>
         <span>개체별 보기 ({data.length}두)</span>
-        <span style={{fontSize:11,color:'#888',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {totalPrice > 0 && <span style={{fontSize:12,color:'#1D9E75',fontWeight:700}}>생돈대 {totalPrice.toLocaleString()}원</span>}
+          <span style={{fontSize:11,color:'#888',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+        </div>
       </button>
       {open&&(
         <div style={{marginTop:8,overflowX:'auto',borderRadius:8,border:'0.5px solid rgba(0,0,0,0.10)'}}>
@@ -112,6 +126,19 @@ function DetailTable({ data }) {
                 )
               })}
             </tbody>
+            {/* 합계 행 */}
+            {totalPrice > 0 && (
+              <tfoot>
+                <tr style={{background:'#F0FAF5',borderTop:'1.5px solid rgba(29,158,117,0.3)'}}>
+                  <td style={{padding:'9px 12px',fontWeight:700,fontSize:12,color:'#085041'}} colSpan={2}>합계</td>
+                  <td style={{padding:'9px 12px',fontWeight:600,fontSize:12}}>{totalLw>0?totalLw.toFixed(1):'—'}</td>
+                  <td style={{padding:'9px 12px',fontWeight:600,fontSize:12}}>{totalCw.toFixed(1)}</td>
+                  <td style={{padding:'9px 12px'}}>—</td>
+                  <td style={{padding:'9px 12px',fontWeight:700,fontSize:12,color:'#085041'}}>{totalPrice.toLocaleString()}원</td>
+                  <td style={{padding:'9px 12px'}}>—</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}
