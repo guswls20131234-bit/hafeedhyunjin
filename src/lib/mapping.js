@@ -7,7 +7,9 @@ export function formToDb(data) {
     owner_name:       data.b2 || null,
     location:         data.b3 || null,
     farm_type:        data.b4 || null,
-    farm_scale:       data.b5 || null,
+    sow_count:        data.b5a ? Number(String(data.b5a).replace(/,/g,'')) : null,
+    total_head:       data.b5b ? Number(String(data.b5b).replace(/,/g,'')) : null,
+    trade_status:     data.b8 || null,
     farm_years:       data.b6 || null,
     contact:          data.b7 || null,
 
@@ -53,7 +55,9 @@ export function dbToForm(row) {
     b2: row.owner_name       || '',
     b3: row.location         || '',
     b4: row.farm_type        || '',
-    b5: row.farm_scale       || '',
+    b5a: row.sow_count != null ? String(row.sow_count) : '',
+    b5b: row.total_head != null ? String(row.total_head) : '',
+    b8: row.trade_status     || '',
     b6: row.farm_years       || '',
     b7: row.contact          || '',
 
