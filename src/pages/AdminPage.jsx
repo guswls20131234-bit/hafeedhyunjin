@@ -373,30 +373,38 @@ export default function AdminPage() {
 
             {/* 필터 */}
             {salesHistory.length > 0 && (
-              <div style={{background:'white',borderRadius:10,padding:'12px 14px',marginBottom:12,border:'0.5px solid rgba(0,0,0,0.08)'}}>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-                  <span style={{fontSize:11,color:'#888',alignSelf:'center',flexShrink:0}}>구분</span>
-                  {['전체','양돈장','대리점'].map(t=>(
+              <div style={{background:'white',borderRadius:10,padding:'12px 14px',marginBottom:12,border:'0.5px solid rgba(0,0,0,0.08)',display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                  <span style={{fontSize:11,color:'#888',width:32,flexShrink:0}}>상태</span>
+                  {['전체','기존','신규'].map(t=>(
                     <button key={t} onClick={()=>setSalesTypeFilter(t==='전체'?'':t)}
-                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',
-                        background:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'#1a4a2e':'#F5F6F4',
-                        color:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'white':'#555',
-                        border:'none'}}>
+                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',border:'none',
+                        background:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))
+                          ? (t==='기존'?'#1D9E75':t==='신규'?'#378ADD':'#1a4a2e')
+                          : '#F5F6F4',
+                        color:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'white':'#555'}}>
+                      {t}
+                    </button>
+                  ))}
+                  <span style={{color:'rgba(0,0,0,0.12)',margin:'0 2px'}}>|</span>
+                  {['양돈장','대리점'].map(t=>(
+                    <button key={t} onClick={()=>setSalesTypeFilter(prev=>prev===t?'':t)}
+                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',border:'none',
+                        background:salesTypeFilter===t?'#1a4a2e':'#F5F6F4',
+                        color:salesTypeFilter===t?'white':'#555'}}>
                       {t}
                     </button>
                   ))}
                 </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  <span style={{fontSize:11,color:'#888',alignSelf:'center',flexShrink:0}}>지역</span>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                  <span style={{fontSize:11,color:'#888',width:32,flexShrink:0}}>지역</span>
                   <button onClick={()=>setSalesCityFilter('')}
-                    style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',
-                      background:!salesCityFilter?'#1a4a2e':'#F5F6F4',
-                      color:!salesCityFilter?'white':'#555',border:'none'}}>전체</button>
+                    style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',border:'none',
+                      background:!salesCityFilter?'#1a4a2e':'#F5F6F4',color:!salesCityFilter?'white':'#555'}}>전체</button>
                   {GYEONGNAM_CITIES.filter(c=>salesHistory.some(r=>r.location===c)).map(c=>(
-                    <button key={c} onClick={()=>setSalesCityFilter(c)}
-                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',
-                        background:salesCityFilter===c?'#1a4a2e':'#F5F6F4',
-                        color:salesCityFilter===c?'white':'#555',border:'none'}}>
+                    <button key={c} onClick={()=>setSalesCityFilter(c===salesCityFilter?'':c)}
+                      style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',border:'none',
+                        background:salesCityFilter===c?'#1a4a2e':'#F5F6F4',color:salesCityFilter===c?'white':'#555'}}>
                       {c}
                     </button>
                   ))}
@@ -418,12 +426,11 @@ export default function AdminPage() {
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 {salesHistory
-                  .filter(r=>!salesCityFilter || r.location===salesCityFilter)
-                  .filter(r=>!salesTypeFilter || r.farm_type_custom===salesTypeFilter || r.farm_name?.includes(salesTypeFilter))
-                  .filter(r=>{
-                    if(!salesTypeFilter) return true
-                    // b0 필드가 DB에 없어서 farm_scale이나 memo에서 유추 — 일단 전체 표시
-                    return true
+                  .filter(r => !salesCityFilter || r.location === salesCityFilter)
+                  .filter(r => {
+                    if (!salesTypeFilter) return true
+                    const b0 = r.customer_type || ''
+                    return b0.includes(salesTypeFilter)
                   })
                   .map(row=>{
                   const pos = !row.possibility?{label:'-',color:'#999',bg:'#f5f5f5'}:
@@ -431,19 +438,24 @@ export default function AdminPage() {
                     row.possibility.includes('60')?{label:'MED-HIGH',color:'#5a6a00',bg:'#f5f5e0'}:
                     row.possibility.includes('30~60')?{label:'MEDIUM',color:'#a06000',bg:'#fff3e0'}:
                     {label:'LOW',color:'#a01a1a',bg:'#fde8e8'}
+
+                  // b0: "기존·양돈장" 형식 파싱
+                  const b0Parts = (row.customer_type||'').split('·')
+                  const statusTag = b0Parts[0] // 기존 or 신규
+                  const typeTag   = b0Parts[1] // 양돈장 or 대리점
+
                   return (
                     <div key={row.id} style={{background:'white',borderRadius:12,border:'0.5px solid rgba(0,0,0,0.08)',padding:'14px 16px'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                         <div>
-                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-                            <span style={{fontWeight:700,fontSize:14,color:'#1a1a18'}}>{row.farm_name||'(농장명 미입력)'}</span>
-                            {row.customer_type && (
-                              <span style={{fontSize:10,padding:'1px 7px',borderRadius:99,fontWeight:600,
-                                background:row.customer_type==='대리점'?'#E6F1FB':'#E1F5EE',
-                                color:row.customer_type==='대리점'?'#0C447C':'#085041'}}>
-                                {row.customer_type}
-                              </span>
-                            )}
+                          <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2,flexWrap:'wrap'}}>
+                            <span style={{fontWeight:700,fontSize:14,color:'#1a1a18'}}>{row.farm_name||'(미입력)'}</span>
+                            {statusTag && <span style={{fontSize:10,padding:'1px 7px',borderRadius:99,fontWeight:600,
+                              background:statusTag==='기존'?'#E1F5EE':'#E6F1FB',
+                              color:statusTag==='기존'?'#085041':'#0C447C'}}>{statusTag}</span>}
+                            {typeTag && <span style={{fontSize:10,padding:'1px 7px',borderRadius:99,fontWeight:600,
+                              background:typeTag==='대리점'?'#F1EFE8':'#F5F6F4',
+                              color:typeTag==='대리점'?'#4a2a6a':'#1a4a2e'}}>{typeTag}</span>}
                           </div>
                           <div style={{fontSize:11,color:'#888'}}>{[row.location,row.meeting_date].filter(Boolean).join(' · ')}</div>
                         </div>
