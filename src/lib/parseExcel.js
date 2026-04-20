@@ -22,11 +22,25 @@ function parseJeongSanSeo(json) {
   let sheetMeatco = ''
   let sheetPriceKg = 0
 
-  // 상위 10행 스캔: 입고일자, 출하육가공, 전국단가
-  for (let i = 0; i < Math.min(10, json.length); i++) {
+  // 상위 10행 스캔: 입고일자, 출하육가공, 전국단가, 자조금/감가 항목
+  const settlement = {
+    total_price: 0, jojogeum: 0, total_paid: 0,
+    deduct_samgyup: 0, deduct_moksim: 0, deduct_fat: 0,
+    deduct_weight: 0, deduct_grade: 0, deduct_huji: 0,
+    grade_bonus: 0
+  }
+
+  for (let i = 0; i < Math.min(12, json.length); i++) {
     const row = json[i]
     for (let ci = 0; ci < row.length; ci++) {
       const h = String(row[ci] || '').trim().replace(/\s/g,'')
+      const nextVal = () => {
+        for (let k = ci+1; k < Math.min(ci+8, row.length); k++) {
+          const val = parseFloat(row[k])
+          if (!isNaN(val)) return val
+        }
+        return 0
+      }
       // 날짜
       if (!sheetDate || sheetDate === new Date().toISOString().slice(0,10)) {
         const d = parseDateVal(row[ci])
@@ -39,13 +53,21 @@ function parseJeongSanSeo(json) {
           if (v && !v.replace(/\s/g,'').includes('육가공') && v.length > 1) { sheetMeatco = v; break }
         }
       }
-      // 전국단가 (김기룡 스타일)
+      // 전국단가
       if (h.includes('전국단가') && !sheetPriceKg) {
-        for (let k = ci+1; k < Math.min(ci+6, row.length); k++) {
-          const val = parseFloat(row[k])
-          if (!isNaN(val) && val > 1000) { sheetPriceKg = val; break }
-        }
+        const val = nextVal(); if (val > 1000) sheetPriceKg = val
       }
+      // 정산 항목
+      if (h.includes('생돈대') && !h.includes('등급'))    settlement.total_price  = nextVal()
+      if (h.includes('자조금'))                            settlement.jojogeum     = nextVal()
+      if (h.includes('총지급액'))                          settlement.total_paid   = nextVal()
+      if (h.includes('등급장려금'))                        settlement.grade_bonus  = nextVal()
+      if (h.includes('삼겹감량'))                          settlement.deduct_samgyup = nextVal()
+      if (h.includes('목심감량'))                          settlement.deduct_moksim  = nextVal()
+      if (h.includes('등지방감량'))                        settlement.deduct_fat     = nextVal()
+      if (h.includes('도체중감량'))                        settlement.deduct_weight  = nextVal()
+      if (h.includes('등급감량'))                          settlement.deduct_grade   = nextVal()
+      if (h.includes('후지감량'))                          settlement.deduct_huji    = nextVal()
     }
   }
 
@@ -92,6 +114,8 @@ function parseJeongSanSeo(json) {
       pig_id: idxId !== undefined ? String(row[idxId] ?? '').trim() : '',
       sex, lw: parseFloat(row[idxLw] ?? '') || 0, cw, bf, price,
       meatco: sheetMeatco,
+      // 정산 항목은 rows 첫 번째에만 저장 (출하 단위 정보)
+      ...(rows.length === 0 ? settlement : {})
     })
   }
 
@@ -103,7 +127,7 @@ function parseJeongSanSeo(json) {
   }
 
   if (!rows.length) throw new Error('정산서에서 데이터를 찾을 수 없습니다.')
-  return { rows, sheetDate, sheetMeatco, sheetPriceKg }
+  return { rows, sheetDate, sheetMeatco, sheetPriceKg, settlement }
 }
 
 // ── 기존 우리 양식 파싱 ───────────────────────────────
