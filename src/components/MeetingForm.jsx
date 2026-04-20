@@ -9,7 +9,7 @@ const SECTIONS = [
   {
     id: 'basic', title: '🏢 거래처 기본 정보', color: '#1a4a2e',
     questions: [
-      { id: 'b0', label: '거래처 구분', type: 'select', options: ['양돈장', '대리점'] },
+      { id: 'b0', label: '거래처 구분', type: 'twopicker' },
       { id: 'b1', label: '농장명 / 사업체명', type: 'text', placeholder: '예) ○○축산, ○○농장' },
       { id: 'b2', label: '대표자명', type: 'text', placeholder: '성함' },
       { id: 'b3', label: '시/군 (경남)', type: 'gyeongnam' },
@@ -108,8 +108,40 @@ function GyeongnamPicker({ value, onChange }) {
   )
 }
 
+// 기존/신규 × 양돈장/대리점 2축 선택
+function TwoPicker({ value = '', onChange }) {
+  // value 형식: "기존·양돈장" or "신규·대리점" 등
+  const parts = value ? value.split('·') : ['', '']
+  const status = parts[0] || ''
+  const type   = parts[1] || ''
+  const set = (s, t) => onChange([s, t].filter(Boolean).join('·'))
+  const btnStyle = (active, color) => ({
+    padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 400,
+    background: active ? color : '#f5f5f5', color: active ? 'white' : '#555',
+    border: active ? `1.5px solid ${color}` : '1.5px solid #ddd',
+    cursor: 'pointer', fontFamily: 'inherit'
+  })
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: '#888', width: 32, flexShrink: 0 }}>구분</span>
+        {[['기존', '#1D9E75'], ['신규', '#378ADD']].map(([s, c]) => (
+          <button key={s} type="button" onClick={() => set(s, type)} style={btnStyle(status === s, c)}>{s}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: '#888', width: 32, flexShrink: 0 }}>업종</span>
+        {[['양돈장', '#1a4a2e'], ['대리점', '#4a2a6a']].map(([t, c]) => (
+          <button key={t} type="button" onClick={() => set(status, t)} style={btnStyle(type === t, c)}>{t}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Field({ q, value, onChange }) {
   const base = { width: '100%', padding: '9px 12px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, outline: 'none', background: '#fafafa', boxSizing: 'border-box', fontFamily: 'inherit' }
+  if (q.type === 'twopicker') return <TwoPicker value={value} onChange={onChange} />
   if (q.type === 'gyeongnam') return <GyeongnamPicker value={value} onChange={onChange} />
   if (q.type === 'textarea') return <textarea style={{ ...base, minHeight: 80, resize: 'vertical' }} placeholder={q.placeholder} value={value || ''} onChange={(e) => onChange(e.target.value)} />
   if (q.type === 'select') return (
