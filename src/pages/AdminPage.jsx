@@ -135,7 +135,8 @@ export default function AdminPage() {
   // 영업관리 state
   const [salesView,      setSalesView]      = useState('history')
   const [salesCityFilter,setSalesCityFilter]= useState('')
-  const [salesTypeFilter,setSalesTypeFilter]= useState('') // 'form'|'history'|'report'
+  const [salesStatusFilter,setSalesStatusFilter]= useState('') // 기존/신규
+  const [salesTypeFilter,setSalesTypeFilter]= useState('')     // 양돈장/대리점 // 'form'|'history'|'report'
   const [salesForm,      setSalesForm]      = useState({})
   const [salesEditId,    setSalesEditId]    = useState(null)
   const [salesHistory,   setSalesHistory]   = useState([])
@@ -377,21 +378,23 @@ export default function AdminPage() {
                 <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
                   <span style={{fontSize:11,color:'#888',width:32,flexShrink:0}}>상태</span>
                   {['전체','기존','신규'].map(t=>(
-                    <button key={t} onClick={()=>setSalesTypeFilter(t==='전체'?'':t)}
+                    <button key={t} onClick={()=>setSalesStatusFilter(t==='전체'?'':t)}
                       style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',border:'none',
-                        background:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))
+                        background:(salesStatusFilter===t||(t==='전체'&&!salesStatusFilter))
                           ? (t==='기존'?'#1D9E75':t==='신규'?'#378ADD':'#1a4a2e')
                           : '#F5F6F4',
-                        color:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'white':'#555'}}>
+                        color:(salesStatusFilter===t||(t==='전체'&&!salesStatusFilter))?'white':'#555'}}>
                       {t}
                     </button>
                   ))}
-                  <span style={{color:'rgba(0,0,0,0.12)',margin:'0 2px'}}>|</span>
-                  {['양돈장','대리점'].map(t=>(
-                    <button key={t} onClick={()=>setSalesTypeFilter(prev=>prev===t?'':t)}
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                  <span style={{fontSize:11,color:'#888',width:32,flexShrink:0}}>업종</span>
+                  {['전체','양돈장','대리점'].map(t=>(
+                    <button key={t} onClick={()=>setSalesTypeFilter(t==='전체'?'':t)}
                       style={{padding:'4px 12px',borderRadius:99,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',border:'none',
-                        background:salesTypeFilter===t?'#1a4a2e':'#F5F6F4',
-                        color:salesTypeFilter===t?'white':'#555'}}>
+                        background:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'#1a4a2e':'#F5F6F4',
+                        color:(salesTypeFilter===t||(t==='전체'&&!salesTypeFilter))?'white':'#555'}}>
                       {t}
                     </button>
                   ))}
@@ -427,11 +430,8 @@ export default function AdminPage() {
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 {salesHistory
                   .filter(r => !salesCityFilter || r.location === salesCityFilter)
-                  .filter(r => {
-                    if (!salesTypeFilter) return true
-                    const b0 = r.customer_type || ''
-                    return b0.includes(salesTypeFilter)
-                  })
+                  .filter(r => !salesStatusFilter || (r.customer_type||'').includes(salesStatusFilter))
+                  .filter(r => !salesTypeFilter   || (r.customer_type||'').includes(salesTypeFilter))
                   .map(row=>{
                   const pos = !row.possibility?{label:'-',color:'#999',bg:'#f5f5f5'}:
                     row.possibility.includes('90%')?{label:'HIGH',color:'#1a7a1a',bg:'#e8f5e8'}:
@@ -489,8 +489,9 @@ export default function AdminPage() {
             {/* MS 요약 */}
             {!salesLoading && salesHistory.length > 0 && (() => {
               const filtered = salesHistory
-                .filter(r => !salesCityFilter || r.location === salesCityFilter)
-                .filter(r => !salesTypeFilter || (r.customer_type||'').includes(salesTypeFilter))
+                .filter(r => !salesCityFilter    || r.location === salesCityFilter)
+                .filter(r => !salesStatusFilter  || (r.customer_type||'').includes(salesStatusFilter))
+                .filter(r => !salesTypeFilter    || (r.customer_type||'').includes(salesTypeFilter))
               const totalHead    = filtered.reduce((a,r)=>a+(Number(r.total_head)||0),0)
               const tradingHead  = filtered.filter(r=>(r.trade_status||'').includes('거래 중')).reduce((a,r)=>a+(Number(r.total_head)||0),0)
               const ms = totalHead > 0 ? ((tradingHead/totalHead)*100).toFixed(1) : null
