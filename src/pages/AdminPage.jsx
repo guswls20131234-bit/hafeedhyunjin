@@ -87,9 +87,14 @@ function Stats({ data, filter, mode }) {
   const castrate = data.filter(d=>d.sex==='거세').length
   const total    = female+castrate
   const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
-  const meatcos = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
-  const priceKg = data.find(d=>d.price_kg>0)?.price_kg || 0
-  const totalPrice = data.reduce((a,d)=>a+(Number(d.price)||0),0)
+  const meatcos   = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
+  const priceKg   = data.find(d=>d.price_kg>0)?.price_kg || 0
+  const totalPrice  = data.reduce((a,d)=>a+(Number(d.price)||0),0)
+  const jojogeum    = data.find(d=>d.jojogeum>0)?.jojogeum || 0
+  const totalPaid   = data.find(d=>d.total_paid>0)?.total_paid || 0
+  const totalDeduct = ['deduct_samgyup','deduct_moksim','deduct_fat','deduct_weight','deduct_grade','deduct_huji']
+    .reduce((a,k) => a + (Number(data.find(d=>Number(d[k])>0)?.[k]) || 0), 0)
+  const gradeBonus  = data.find(d=>d.grade_bonus>0)?.grade_bonus || 0
   return (
     <>
       <div className="stat-grid">
@@ -101,8 +106,25 @@ function Stats({ data, filter, mode }) {
         <div className="stat-box"><div className="stat-label">1등급+ 비율</div><div><span className="stat-val">{((plus/data.length)*100).toFixed(1)}</span><span className="stat-unit">%</span></div></div>
         {totalPrice > 0 && (
           <div className="stat-box" style={{gridColumn:'1/-1',background:'#E1F5EE',border:'0.5px solid rgba(29,158,117,0.2)'}}>
-            <div className="stat-label" style={{color:'#085041'}}>생돈대 합계</div>
-            <div><span className="stat-val" style={{color:'#085041',fontSize:20}}>{totalPrice.toLocaleString()}</span><span className="stat-unit" style={{color:'#085041'}}>원</span></div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
+              <div>
+                <div className="stat-label" style={{color:'#085041'}}>생돈대 합계</div>
+                <div><span className="stat-val" style={{color:'#085041',fontSize:20}}>{totalPrice.toLocaleString()}</span><span className="stat-unit" style={{color:'#085041'}}>원</span></div>
+              </div>
+              {(jojogeum > 0 || totalDeduct > 0 || gradeBonus > 0) && (
+                <div style={{display:'flex',flexDirection:'column',gap:3,fontSize:11,color:'#666',alignItems:'flex-end'}}>
+                  {gradeBonus > 0  && <span style={{color:'#1a7a1a'}}>등급장려금 +{gradeBonus.toLocaleString()}원</span>}
+                  {jojogeum > 0    && <span style={{color:'#A32D2D'}}>자조금 -{jojogeum.toLocaleString()}원</span>}
+                  {totalDeduct > 0 && <span style={{color:'#A32D2D'}}>감가 -{totalDeduct.toLocaleString()}원</span>}
+                </div>
+              )}
+            </div>
+            {totalPaid > 0 && (
+              <div style={{marginTop:8,paddingTop:8,borderTop:'0.5px solid rgba(29,158,117,0.3)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:11,color:'#085041',fontWeight:600}}>실수령액 (총지급액)</span>
+                <span style={{fontSize:16,fontWeight:700,color:'#085041'}}>{totalPaid.toLocaleString()}원</span>
+              </div>
+            )}
           </div>
         )}
       </div>
