@@ -461,7 +461,15 @@ export default function AdminPage() {
                         </div>
                         <span style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:6,background:pos.bg,color:pos.color,border:`1.5px solid ${pos.color}`,whiteSpace:'nowrap'}}>{pos.label}</span>
                       </div>
-                      <div style={{fontSize:12,color:'#666',marginBottom:10}}>{[row.farm_type,row.farm_scale,row.expected_volume?`예상: ${row.expected_volume}`:''].filter(Boolean).join(' · ')}</div>
+                      <div style={{display:'flex',gap:10,marginBottom:8,flexWrap:'wrap'}}>
+                        {row.sow_count > 0 && <span style={{fontSize:11,color:'#555'}}>모돈 <b>{Number(row.sow_count).toLocaleString()}두</b></span>}
+                        {row.total_head > 0 && <span style={{fontSize:11,color:'#555'}}>전체 <b>{Number(row.total_head).toLocaleString()}두</b></span>}
+                        {row.trade_status && <span style={{fontSize:10,padding:'1px 8px',borderRadius:99,fontWeight:600,
+                          background:row.trade_status==='거래 중'?'#E1F5EE':row.trade_status==='과거 거래'?'#FAEEDA':'#F5F6F4',
+                          color:row.trade_status==='거래 중'?'#085041':row.trade_status==='과거 거래'?'#633806':'#888'}}>
+                          {row.trade_status}
+                        </span>}
+                      </div>
                       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                         <button onClick={()=>{ setSalesReport({data:dbToForm(row),raw:row}); setSalesPrevView('history'); setSalesView('report') }}
                           style={{flex:1,minWidth:70,background:'#1D9E75',color:'white',border:'none',borderRadius:7,padding:'7px 0',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>📋 보고서</button>
@@ -477,6 +485,39 @@ export default function AdminPage() {
                 })}
               </div>
             )}
+
+            {/* MS 요약 */}
+            {!salesLoading && salesHistory.length > 0 && (() => {
+              const filtered = salesHistory
+                .filter(r => !salesCityFilter || r.location === salesCityFilter)
+                .filter(r => !salesTypeFilter || (r.customer_type||'').includes(salesTypeFilter))
+              const totalHead    = filtered.reduce((a,r)=>a+(Number(r.total_head)||0),0)
+              const tradingHead  = filtered.filter(r=>(r.trade_status||'').includes('거래 중')).reduce((a,r)=>a+(Number(r.total_head)||0),0)
+              const ms = totalHead > 0 ? ((tradingHead/totalHead)*100).toFixed(1) : null
+              if (totalHead === 0) return null
+              return (
+                <div style={{background:'white',borderRadius:10,padding:'14px 16px',marginTop:12,border:'0.5px solid rgba(0,0,0,0.08)'}}>
+                  <div style={{fontSize:11,color:'#888',marginBottom:10}}>
+                    📊 {salesCityFilter||'전체'} {salesTypeFilter||'전체'} 현황
+                    <span style={{marginLeft:6,fontSize:10,color:'#bbb'}}>({filtered.length}건 기준)</span>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                    <div style={{background:'#F5F6F4',borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{fontSize:10,color:'#888',marginBottom:3}}>전체 규모</div>
+                      <div style={{fontSize:16,fontWeight:700,color:'#1a1a18'}}>{totalHead.toLocaleString()}<span style={{fontSize:10,color:'#888',marginLeft:2}}>두</span></div>
+                    </div>
+                    <div style={{background:'#E1F5EE',borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{fontSize:10,color:'#085041',marginBottom:3}}>당사 거래</div>
+                      <div style={{fontSize:16,fontWeight:700,color:'#085041'}}>{tradingHead.toLocaleString()}<span style={{fontSize:10,marginLeft:2}}>두</span></div>
+                    </div>
+                    <div style={{background:ms>=50?'#E1F5EE':ms>=30?'#FAEEDA':'#FCEBEB',borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{fontSize:10,color:'#888',marginBottom:3}}>MS</div>
+                      <div style={{fontSize:16,fontWeight:700,color:ms>=50?'#085041':ms>=30?'#633806':'#A32D2D'}}>{ms??'—'}<span style={{fontSize:10,marginLeft:2}}>{ms?'%':''}</span></div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
           </>
         )}
       </div>
