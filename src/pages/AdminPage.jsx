@@ -9,7 +9,7 @@ import HistoryList from '../components/HistoryList'
 import ReportView from '../components/ReportView'
 import { formToDb, dbToForm } from '../lib/mapping'
 
-const ADMIN_PASSWORD = '1234'
+const ADMIN_PASSWORD = '5302'
 
 function isGradePlus(cw,bf){ return cw>=83&&cw<93&&bf>=17&&bf<25 }
 function gradeLabel(cw,bf){
