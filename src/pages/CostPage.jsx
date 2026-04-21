@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+const INCOME_GROUPS = [
+  { key: 'sow_income',   label: '모돈/도태돈 수입',  color: '#1D9E75', bg: '#E1F5EE' },
+  { key: 'other_income', label: '기타 수입',          color: '#378ADD', bg: '#E6F1FB' },
+]
+
 const COST_GROUPS = [
-  { key: 'medicine',  label: '약품/백신비',        color: '#E24B4A', bg: '#FCEBEB' },
-  { key: 'labor',     label: '인건비',              color: '#378ADD', bg: '#E6F1FB' },
-  { key: 'tax',       label: '원천세 및 4대보험',   color: '#5B3FA6', bg: '#EDE8FB' },
-  { key: 'exit_ins',  label: '출국만기보험료',       color: '#1D9E75', bg: '#E1F5EE' },
-  { key: 'power',     label: '전력비',              color: '#BA7517', bg: '#FAEEDA' },
-  { key: 'utility',   label: '수도광열비',           color: '#C47B2B', bg: '#FDF3E3' },
-  { key: 'manure',    label: '분뇨처리비',           color: '#5F5E5A', bg: '#F1EFE8' },
-  { key: 'semen',     label: '정액구입비',           color: '#0C447C', bg: '#E6F1FB' },
-  { key: 'interest',  label: '이자비용',             color: '#A32D2D', bg: '#FCEBEB' },
-  { key: 'repair',    label: '수리유지비',            color: '#6B6B68', bg: '#F5F6F4' },
-  { key: 'other',     label: '기타',                color: '#888',    bg: '#F5F6F4' },
+  { key: 'extra_feed',  label: '기타사료비',           color: '#0C447C', bg: '#E6F1FB' },
+  { key: 'medicine',   label: '약품/백신비',           color: '#E24B4A', bg: '#FCEBEB' },
+  { key: 'labor',      label: '인건비',                color: '#378ADD', bg: '#E6F1FB' },
+  { key: 'tax',        label: '원천세 및 4대보험',      color: '#5B3FA6', bg: '#EDE8FB' },
+  { key: 'exit_ins',   label: '출국만기보험료',          color: '#1D9E75', bg: '#E1F5EE' },
+  { key: 'power',      label: '전력비',                color: '#BA7517', bg: '#FAEEDA' },
+  { key: 'utility',    label: '수도광열비',              color: '#C47B2B', bg: '#FDF3E3' },
+  { key: 'manure',     label: '분뇨처리비',              color: '#5F5E5A', bg: '#F1EFE8' },
+  { key: 'semen',      label: '정액구입비',              color: '#0C447C', bg: '#E6F1FB' },
+  { key: 'interest',   label: '이자비용',               color: '#A32D2D', bg: '#FCEBEB' },
+  { key: 'repair',     label: '수리유지비',              color: '#6B6B68', bg: '#F5F6F4' },
+  { key: 'other',      label: '기타',                  color: '#888',    bg: '#F5F6F4' },
 ]
 const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
 const NOW = new Date()
@@ -161,10 +167,18 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
 
   // 비용 계산
   const visibleItems = items.filter(it=>!it.isDeleted)
+  const incomeByGroup = {}
+  INCOME_GROUPS.forEach(g=>{ incomeByGroup[g.key] = visibleItems.filter(it=>it.category===g.key) })
   const costByGroup = {}
   COST_GROUPS.forEach(g=>{ costByGroup[g.key] = visibleItems.filter(it=>it.category===g.key) })
-  const totalCost = visibleItems.reduce((a,it)=>a+Number(it.amount||0),0) + feedCost
-  const netProfit = income - totalCost
+
+  const extraIncome = INCOME_GROUPS.reduce((a,g)=>{
+    return a + (incomeByGroup[g.key]||[]).reduce((b,it)=>b+Number(it.amount||0),0)
+  },0)
+  const totalIncome = income + extraIncome
+  const totalCost   = visibleItems.filter(it=>!INCOME_GROUPS.find(g=>g.key===it.category))
+    .reduce((a,it)=>a+Number(it.amount||0),0) + feedCost
+  const netProfit   = totalIncome - totalCost
 
   return (
     <div style={{padding:'0 0 2rem'}}>
@@ -189,16 +203,26 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
         </div>
       </div>
 
-      {/* 수입 카드 */}
+      {/* 수입 */}
+      <div style={{fontSize:12,color:'#888',fontWeight:500,marginBottom:8,paddingLeft:2}}>수입</div>
       <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:14,marginBottom:10}}>
-        <div style={{fontSize:12,color:'#888',marginBottom:8,fontWeight:500}}>수입</div>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'0.5px solid rgba(0,0,0,0.07)'}}>
           <span style={{fontSize:13,color:'#555'}}>생돈대 수취액 <span style={{fontSize:10,color:'#aaa'}}>(출하성적 자동)</span></span>
-          <span style={{fontSize:14,fontWeight:700,color:'#085041'}}>{income>0?income.toLocaleString()+'원':'—'}</span>
+          <span style={{fontSize:13,fontWeight:700,color:'#085041'}}>{income>0?income.toLocaleString()+'원':'—'}</span>
         </div>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:8}}>
+        {INCOME_GROUPS.map(g=>{
+          const gItems = incomeByGroup[g.key]||[]
+          const gTotal = gItems.reduce((a,it)=>a+Number(it.amount||0),0)
+          return (
+            <div key={g.key} style={{borderBottom:'0.5px solid rgba(0,0,0,0.05)'}}>
+              <CostGroupCard group={g} items={gItems}
+                onAdd={handleAdd} onUpdate={handleUpdate} onDelete={handleDelete}/>
+            </div>
+          )
+        })}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:8,marginTop:4}}>
           <span style={{fontSize:13,fontWeight:600,color:'#1a1a18'}}>총 수입</span>
-          <span style={{fontSize:16,fontWeight:700,color:'#085041'}}>{income>0?income.toLocaleString()+'원':'—'}</span>
+          <span style={{fontSize:16,fontWeight:700,color:'#085041'}}>{totalIncome>0?totalIncome.toLocaleString()+'원':'—'}</span>
         </div>
       </div>
 
@@ -232,16 +256,30 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
             <span style={{color:'rgba(255,255,255,0.6)'}}>총 수입</span>
-            <span style={{color:'#5DCAA5',fontWeight:600}}>{income>0?income.toLocaleString()+'원':'—'}</span>
+            <span style={{color:'#5DCAA5',fontWeight:600}}>{totalIncome>0?totalIncome.toLocaleString()+'원':'—'}</span>
           </div>
+          {(income>0||extraIncome>0) && (
+            <div style={{paddingLeft:12,display:'flex',flexDirection:'column',gap:3}}>
+              {income>0 && <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.4)'}}>
+                <span>생돈대 수취액</span><span>{income.toLocaleString()}원</span>
+              </div>}
+              {INCOME_GROUPS.map(g=>{
+                const tot=(incomeByGroup[g.key]||[]).reduce((a,it)=>a+Number(it.amount||0),0)
+                if(!tot) return null
+                return <div key={g.key} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.4)'}}>
+                  <span>{g.label}</span><span>{tot.toLocaleString()}원</span>
+                </div>
+              })}
+            </div>
+          )}
           <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
             <span style={{color:'rgba(255,255,255,0.6)'}}>총 지출</span>
             <span style={{color:'#F09595',fontWeight:600}}>{totalCost>0?totalCost.toLocaleString()+'원':'—'}</span>
           </div>
-          {(feedCost>0||visibleItems.length>0) && (
-            <div style={{paddingLeft:12,display:'flex',flexDirection:'column',gap:4}}>
+          {(feedCost>0||visibleItems.filter(it=>!INCOME_GROUPS.find(g=>g.key===it.category)).length>0) && (
+            <div style={{paddingLeft:12,display:'flex',flexDirection:'column',gap:3}}>
               {feedCost>0 && <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.4)'}}>
-                <span>사료비</span><span>{feedCost.toLocaleString()}원</span>
+                <span>사료비(자동)</span><span>{feedCost.toLocaleString()}원</span>
               </div>}
               {COST_GROUPS.map(g=>{
                 const tot=(costByGroup[g.key]||[]).reduce((a,it)=>a+Number(it.amount||0),0)
@@ -255,7 +293,7 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
           <div style={{borderTop:'0.5px solid rgba(255,255,255,0.15)',paddingTop:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span style={{fontSize:14,fontWeight:700}}>손익</span>
             <span style={{fontSize:20,fontWeight:700,color:netProfit>=0?'#5DCAA5':'#F09595'}}>
-              {income===0&&totalCost===0?'—':(netProfit>=0?'+':'')+netProfit.toLocaleString()+'원'}
+              {totalIncome===0&&totalCost===0?'—':(netProfit>=0?'+':'')+netProfit.toLocaleString()+'원'}
             </span>
           </div>
         </div>
