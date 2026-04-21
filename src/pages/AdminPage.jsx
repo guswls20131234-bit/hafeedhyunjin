@@ -193,6 +193,8 @@ export default function AdminPage() {
   const [delStatus,      setDelStatus]      = useState(null)
   const [delConfirm,     setDelConfirm]     = useState(false)
   const [delLoading,     setDelLoading]     = useState(false)
+  const [shipments,      setShipments]      = useState([])
+  const [farmFeedRecs,   setFarmFeedRecs]   = useState([])
 
   useEffect(()=>{ if(authed) loadFarms() },[authed])
   useEffect(()=>{ if(selFarm) loadDb() },[selFarm])
@@ -211,7 +213,9 @@ export default function AdminPage() {
     const { data:rows } = await supabase.from('shipments').select('*').eq('farm_slug',selFarm.slug).order('date',{ascending:false})
     const loadedRows = rows||[]
     setDbData(loadedRows)
-    // 가장 최근 날짜 자동 선택
+    setShipments(loadedRows)
+    const { data:feeds } = await supabase.from('feed_records').select('*').eq('farm_slug',selFarm.slug)
+    setFarmFeedRecs(feeds||[])
     const latestDate = loadedRows.length > 0 ? loadedRows[0].date : 'all'
     setFilter(latestDate)
     setDelDate(''); setDelStatus(null); setDelConfirm(false); setStatus(null)
@@ -385,7 +389,7 @@ export default function AdminPage() {
     </div>
 
     {tab==='feed' && <FeedPage farmSlug={selFarm?.slug||'admin'} isAdmin={true}/>}
-    {tab==='cost' && <CostPage farmSlug={selFarm?.slug||'admin'} shipments={shipments} feedRecords={[]}/>}
+    {tab==='cost' && <CostPage farmSlug={selFarm?.slug||'admin'} shipments={shipments} feedRecords={farmFeedRecs}/>}
     {tab==='sales' && (
       <div style={{paddingBottom:'2rem'}}>
         {salesView==='report' && salesReport ? (
