@@ -383,7 +383,7 @@ export default function AdminPage() {
       ))}
     </div>
 
-    {tab==='feed' && <FeedPage farmSlug={selFarm?.slug||'admin'}/>}
+    {tab==='feed' && <FeedPage farmSlug={selFarm?.slug||'admin'} isAdmin={true}/>}
     {tab==='sales' && (
       <div style={{paddingBottom:'2rem'}}>
         {salesView==='report' && salesReport ? (
