@@ -6,6 +6,7 @@ const SECTIONS = [
   { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호','체인지'] },
   { key:'sow',       label:'모돈 구간', color:'#1D9E75', bg:'#E1F5EE', feeds:['임신돈','포유돈'] },
   { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['1호사료','2호사료'] },
+  { key:'etc',       label:'기타',      color:'#5F5E5A', bg:'#F1EFE8', feeds:['기타1','기타2'] },
 ]
 const ALL_FEEDS = SECTIONS.flatMap(s => s.feeds.map(f => ({section:s.key, sectionLabel:s.label, feed:f})))
 const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
@@ -467,18 +468,27 @@ export default function FeedPage({ farmSlug, isAdmin }) {
           {loading && <span style={{fontSize:12,color:'#aaa'}}>불러오는 중...</span>}
         </div>
 
-        {/* 거래원장 업로드 (관리자만) */}
+        {/* 거래원장 업로드 + 데이터 삭제 (관리자만) */}
         {isAdmin && (
-          <div style={{marginTop:10,paddingTop:10,borderTop:'0.5px solid rgba(0,0,0,0.07)'}}>
-            <label>
+          <div style={{marginTop:10,paddingTop:10,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',gap:8,flexWrap:'wrap'}}>
+            <label style={{flex:1}}>
               <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'#F5F6F4',borderRadius:8,cursor:'pointer',fontSize:12,color:'#555'}}>
                 <span>📂</span>
-                <span>거래원장 엑셀 업로드</span>
+                <span>거래원장 업로드</span>
                 <span style={{fontSize:10,color:'#aaa',marginLeft:'auto'}}>월 합계 자동 파싱</span>
               </div>
               <input type="file" accept=".xlsx,.xls" style={{display:'none'}}
                 onChange={e=>handleWonJangFile(e.target.files[0])}/>
             </label>
+            {viewMode==='monthly' && (
+              <button onClick={async ()=>{
+                if (!window.confirm(`${year}년 ${month}월 사료 데이터를 삭제할까요?`)) return
+                await supabase.from('feed_records').delete().eq('farm_slug',slug).eq('year',year).eq('month',month)
+                load()
+              }} style={{padding:'8px 14px',background:'#FCEBEB',color:'#A32D2D',border:'0.5px solid #F09595',borderRadius:8,fontSize:12,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
+                🗑️ {month}월 삭제
+              </button>
+            )}
           </div>
         )}
       </div>
