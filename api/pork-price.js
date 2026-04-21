@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   try {
     // 돼지 경락가격 API 호출
     async function fetchPrice(date) {
-      const url = `http://data.ekape.or.kr/openapi-data/service/user/grade/auct/pig?serviceKey=${SERVICE_KEY}&yyyymmdd=${date}&numOfRows=100&pageNo=1`
+      const url = `https://data.ekape.or.kr/openapi-data/service/user/grade/auct/pig?serviceKey=${SERVICE_KEY}&yyyymmdd=${date}&numOfRows=100&pageNo=1`
       const response = await fetch(url)
       const text = await response.text()
       return text
@@ -82,4 +82,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: err.message })
   }
 }
-
