@@ -5,6 +5,7 @@ import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 import FeedPage from './FeedPage'
 import CostPage from './CostPage'
+import PorkPriceToast from '../components/PorkPriceToast'
 
 function isGradePlus(cw, bf) { return cw>=83&&cw<93&&bf>=17&&bf<25 }
 function gradeLabel(cw, bf) {
@@ -210,6 +211,7 @@ export default function FarmPage() {
 
   return (
   <>
+    <PorkPriceToast />
     <div className="page">
       <div className="header">
         <div className="header-left">
