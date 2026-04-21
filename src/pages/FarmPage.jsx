@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 import FeedPage from './FeedPage'
+import CostPage from './CostPage'
 
 function isGradePlus(cw, bf) { return cw>=83&&cw<93&&bf>=17&&bf<25 }
 function gradeLabel(cw, bf) {
@@ -171,6 +172,7 @@ function DetailTable({ data }) {
 const TABS = [
   { key: 'shipment', label: '출하성적' },
   { key: 'feed',     label: '사료현황' },
+  { key: 'cost',     label: '비용현황' },
 ]
 
 export default function FarmPage() {
@@ -181,6 +183,7 @@ export default function FarmPage() {
   const [filter, setFilter] = useState('all')
   const [loading,setLoading]= useState(true)
   const [tab,    setTab]    = useState('shipment')
+  const [feedRecords, setFeedRecords] = useState([])
 
   useEffect(()=>{
     async function load() {
@@ -190,11 +193,9 @@ export default function FarmPage() {
       const { data:rows } = await supabase.from('shipments').select('*').eq('farm_slug',farmSlug).order('date',{ascending:false})
       const loadedRows = rows||[]
       setData(loadedRows)
-      // 가장 최근 날짜 자동 선택
-      if (loadedRows.length > 0) {
-        const latestDate = loadedRows[0].date
-        setFilter(latestDate)
-      }
+      if (loadedRows.length > 0) setFilter(loadedRows[0].date)
+      const { data:feeds } = await supabase.from('feed_records').select('*').eq('farm_slug',farmSlug)
+      setFeedRecords(feeds||[])
       setLoading(false)
     }
     load()
@@ -270,6 +271,9 @@ export default function FarmPage() {
 
       {/* 사료현황 탭 */}
       {tab==='feed' && <FeedPage farmSlug={farmSlug}/>}
+
+      {/* 비용현황 탭 */}
+      {tab==='cost' && <CostPage farmSlug={farmSlug} shipments={data} feedRecords={feedRecords}/>}
     </div>
     <Footer/>
   </>
