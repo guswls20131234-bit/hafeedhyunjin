@@ -5,6 +5,7 @@ import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
 import FeedPage from './FeedPage'
 import CostPage from './CostPage'
+import ProductionPage from './ProductionPage'
 import PorkPriceToast from '../components/PorkPriceToast'
 
 function isGradePlus(cw, bf) { return cw>=83&&cw<93&&bf>=17&&bf<25 }
@@ -171,9 +172,10 @@ function DetailTable({ data }) {
 }
 
 const TABS = [
-  { key: 'shipment', label: '출하성적' },
-  { key: 'feed',     label: '사료현황' },
-  { key: 'cost',     label: '비용현황' },
+  { key: 'shipment',   label: '출하성적' },
+  { key: 'feed',       label: '사료현황' },
+  { key: 'cost',       label: '비용현황' },
+  { key: 'production', label: '생산관리' },
 ]
 
 export default function FarmPage() {
@@ -276,6 +278,7 @@ export default function FarmPage() {
 
       {/* 비용현황 탭 */}
       {tab==='cost' && <CostPage farmSlug={farmSlug} shipments={data} feedRecords={feedRecords}/>}
+      {tab==='production' && <ProductionPage farmSlug={farmSlug}/>}
     </div>
     <Footer/>
   </>
