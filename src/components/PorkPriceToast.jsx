@@ -8,7 +8,7 @@ export default function PorkPriceToast() {
   useEffect(() => {
     async function fetchPrice() {
       try {
-        const res  = await fetch('/api/pork-price')
+        const res  = await fetch('https://vsljsjqxcmielpxckjrn.supabase.co/functions/v1/pork-price')
         const data = await res.json()
         if (data.price) {
           setInfo(data)
