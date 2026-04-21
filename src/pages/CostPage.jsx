@@ -155,11 +155,22 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
     const d = new Date(s.date)
     return d.getFullYear()===year && d.getMonth()+1===month
   })
-  // total_paid 있으면 사용, 없으면 price 합계
-  const paidSet = monthShipments.filter(s=>s.total_paid>0)
-  const income = paidSet.length > 0
-    ? paidSet[0].total_paid  // 정산서에서 온 실수령액
-    : monthShipments.reduce((a,s)=>a+(Number(s.price)||0),0) // 생돈대 합계
+
+  // 날짜별 그룹핑 — total_paid는 정산서 기준으로 날짜당 1개만 사용
+  const dateGroups = {}
+  for (const s of monthShipments) {
+    if (!dateGroups[s.date]) dateGroups[s.date] = { hasPaid: false, total_paid: 0, priceSum: 0 }
+    // total_paid는 처음 만난 것만 저장 (같은 날짜 모든 행에 동일값 저장되어 있음)
+    if (s.total_paid > 0 && !dateGroups[s.date].hasPaid) {
+      dateGroups[s.date].hasPaid = true
+      dateGroups[s.date].total_paid = Number(s.total_paid)
+    }
+    dateGroups[s.date].priceSum += Number(s.price)||0
+  }
+  // 날짜별: total_paid 있으면 실수령액, 없으면 생돈대 합계
+  const income = Object.values(dateGroups).reduce((a, g) => {
+    return a + (g.hasPaid ? g.total_paid : g.priceSum)
+  }, 0)
 
   // 사료비: 해당 월 feed_records에서
   const feedCost = (feedRecords||[]).filter(r=>r.year===year&&r.month===month)
