@@ -94,14 +94,31 @@ function MappingModal({ result, farmSlug, onDone, onCancel }) {
     const valid = mappings.filter(m => m.section && m.feed)
     if (!valid.length) { setStatus('❌ 최소 1개 이상 매핑해주세요.'); return }
     setSaving(true)
+
+    // 같은 section+feed 합산
+    const merged = {}
     for (const m of valid) {
+      const key = `${m.section}__${m.feed}`
+      if (!merged[key]) merged[key] = { section:m.section, feed:m.feed, kg:0, won:0 }
+      merged[key].kg  += m.kg  || 0
+      merged[key].won += m.won || 0
+    }
+
+    // 기존 값 불러와서 누적 (이미 저장된 값이 있으면 더하기)
+    const { data: existing } = await supabase.from('feed_records').select('*')
+      .eq('farm_slug', farmSlug).eq('year', result.year).eq('month', result.month)
+
+    for (const m of Object.values(merged)) {
+      const prev = existing?.find(r => r.section===m.section && r.feed_name===m.feed)
       await supabase.from('feed_records').upsert({
         farm_slug: farmSlug,
         year: result.year, month: result.month,
         section: m.section, feed_name: m.feed,
-        amount_kg: m.kg, amount_won: m.won || 0
+        amount_kg:  (prev ? Number(prev.amount_kg||0)  : 0) + m.kg,
+        amount_won: (prev ? Number(prev.amount_won||0) : 0) + m.won,
       }, { onConflict: 'farm_slug,year,month,section,feed_name' })
     }
+
     setSaving(false)
     onDone()
   }
@@ -139,6 +156,31 @@ function MappingModal({ result, farmSlug, onDone, onCancel }) {
             </div>
           </div>
         ))}
+
+        {/* 합산 미리보기 */}
+        {(() => {
+          const merged = {}
+          mappings.filter(m=>m.section&&m.feed).forEach(m=>{
+            const k=`${m.section}__${m.feed}`
+            if(!merged[k]) merged[k]={sectionLabel:SECTIONS.find(s=>s.key===m.section)?.label,feed:m.feed,kg:0}
+            merged[k].kg += m.kg||0
+          })
+          const dupes = Object.values(merged).filter(m=>m.kg>0)
+          if(!dupes.length) return null
+          const hasMulti = mappings.filter(m=>m.section&&m.feed).length > dupes.length
+          return (
+            <div style={{background:hasMulti?'#E6F1FB':'#F5F6F4',borderRadius:8,padding:'10px 12px',marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:600,color:hasMulti?'#0C447C':'#888',marginBottom:6}}>
+                {hasMulti?'⚡ 합산 저장 미리보기':'저장 미리보기'}
+              </div>
+              {dupes.map((m,i)=>(
+                <div key={i} style={{fontSize:11,color:'#555',marginBottom:2}}>
+                  {m.sectionLabel} · {m.feed} → <b>{m.kg.toLocaleString()} kg</b>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         {status && <div style={{fontSize:12,color:'#A32D2D',marginBottom:10}}>{status}</div>}
         <div style={{display:'flex',gap:8}}>
