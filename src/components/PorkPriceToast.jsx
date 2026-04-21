@@ -36,6 +36,11 @@ export default function PorkPriceToast() {
     setTimeout(() => setVisible(false), 7200)
   }, [])
 
+  function close() {
+    setExiting(true)
+    setTimeout(() => setVisible(false), 500)
+  }
+
   if (!visible) return null
 
   return (
@@ -54,8 +59,16 @@ export default function PorkPriceToast() {
       }}>
         {/* 진단일/분만일 */}
         <div>
-          <div style={{fontSize:10, color:'rgba(255,255,255,0.4)', marginBottom:6}}>
-            🐷 오늘({formatDate(today)}) 종부 시
+          {/* 헤더 행: 날짜 + 닫기 버튼 */}
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+            <div style={{fontSize:12, color:'white', fontWeight:700}}>
+              🐷 오늘({formatDate(today)}) 종부 시
+            </div>
+            <button onClick={close} style={{
+              background:'rgba(255,255,255,0.12)', border:'none', color:'rgba(255,255,255,0.7)',
+              borderRadius:6, padding:'3px 10px', fontSize:11, cursor:'pointer',
+              fontFamily:'inherit', fontWeight:500, flexShrink:0
+            }}>닫기</button>
           </div>
           <div style={{display:'flex', flexDirection:'column', gap:5}}>
             {[
