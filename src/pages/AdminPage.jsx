@@ -9,6 +9,7 @@ import HistoryList from '../components/HistoryList'
 import ReportView from '../components/ReportView'
 import { formToDb, dbToForm } from '../lib/mapping'
 import CostPage from './CostPage'
+import PorkPriceToast from '../components/PorkPriceToast'
 
 const ADMIN_PASSWORD = '5302'
 
@@ -367,6 +368,7 @@ export default function AdminPage() {
 
   return (
   <>
+  <PorkPriceToast />
   <div className="page">
     <div className="header">
       <div className="header-left">
