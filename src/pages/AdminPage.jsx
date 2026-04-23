@@ -96,7 +96,15 @@ function Stats({ data, filter, mode }) {
   const meatcos   = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
   const priceKg   = data.find(d=>d.price_kg>0)?.price_kg || 0
   const totalPrice  = data.reduce((a,d)=>a+(Number(d.price)||0),0)
-  const jojogeum    = data.reduce((a,d)=>a+(Number(d.jojogeum)||0), 0)
+  // jojogeum: date+금액 조합으로 중복 제거 후 합산
+  const jojoKeys = new Set()
+  let jojogeum = 0
+  for (const d of data) {
+    if (d.jojogeum > 0) {
+      const key = `${d.date}_${d.jojogeum}`
+      if (!jojoKeys.has(key)) { jojoKeys.add(key); jojogeum += Number(d.jojogeum) }
+    }
+  }
   // total_paid: date+금액 조합으로 중복 제거 후 합산
   const paidKeys = new Set()
   let totalPaid = 0
