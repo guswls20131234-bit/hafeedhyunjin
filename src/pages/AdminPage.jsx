@@ -89,12 +89,20 @@ function Stats({ data, filter, mode }) {
   const female   = data.filter(d=>d.sex==='암').length
   const castrate = data.filter(d=>d.sex==='거세').length
   const total    = female+castrate
-  const dateLabel = filter==='all'?'전체 기간':mode==='monthly'?filter.replace('-','년 ')+'월':filter
+  const dateLabel = filter==='all' ? '전체 기간'
+    : mode==='monthly' ? filter.replace('-','년 ')+'월'
+    : filter.includes('_') ? filter.split('_')[0] + ' ' + filter.split('_')[1]
+    : filter
   const meatcos   = [...new Set(data.map(d=>d.meatco).filter(Boolean))]
   const priceKg   = data.find(d=>d.price_kg>0)?.price_kg || 0
   const totalPrice  = data.reduce((a,d)=>a+(Number(d.price)||0),0)
-  const jojogeum    = data.find(d=>d.jojogeum>0)?.jojogeum || 0
-  const totalPaid   = data.find(d=>d.total_paid>0)?.total_paid || 0
+  const jojogeum    = data.reduce((a,d)=>a+(Number(d.jojogeum)||0), 0)
+  // total_paid: 날짜별로 중복 제거 후 합산
+  const paidByDate = {}
+  for (const d of data) {
+    if (d.total_paid > 0 && !paidByDate[d.date]) paidByDate[d.date] = Number(d.total_paid)
+  }
+  const totalPaid = Object.values(paidByDate).reduce((a,v)=>a+v, 0)
   const totalDeduct = ['deduct_samgyup','deduct_moksim','deduct_fat','deduct_weight','deduct_grade','deduct_huji']
     .reduce((a,k) => a + (Number(data.find(d=>Number(d[k])>0)?.[k]) || 0), 0)
   const gradeBonus  = data.find(d=>d.grade_bonus>0)?.grade_bonus || 0
@@ -222,8 +230,34 @@ export default function AdminPage() {
   }
 
   function getLabel(d){ return mode==='daily'?d.date:d.date?.slice(0,7) }
-  const filtered = filter==='all'?dbData:dbData.filter(d=>getLabel(d)===filter)
-  const labels   = [...new Set(dbData.map(getLabel))].sort().reverse()
+
+  // 같은 날 여러 출하 A/B 구분
+  const dayGroups = {}
+  for (const d of dbData) {
+    const date = d.date
+    if (!dayGroups[date]) dayGroups[date] = []
+    const paid = Number(d.total_paid) || 0
+    let found = false
+    for (const gk of dayGroups[date]) {
+      if (gk.paid === paid) { found = true; break }
+    }
+    if (!found) {
+      const suffix = dayGroups[date].length === 0 ? '' : dayGroups[date].length === 1 ? 'B' : String.fromCharCode(65 + dayGroups[date].length)
+      dayGroups[date].push({ paid, suffix })
+      if (dayGroups[date].length === 2) dayGroups[date][0].suffix = 'A'
+    }
+  }
+  const dataWithGroup = dbData.map(d => {
+    const date = d.date
+    const paid = Number(d.total_paid) || 0
+    const groups = dayGroups[date] || []
+    const group = groups.find(g => g.paid === paid) || groups[0]
+    const suffix = group?.suffix || ''
+    return { ...d, _groupKey: mode==='daily' ? date + (suffix ? `_${suffix}` : '') : d.date?.slice(0,7), _suffix: suffix }
+  })
+
+  const filtered = filter==='all' ? dataWithGroup : dataWithGroup.filter(d => d._groupKey === filter)
+  const labels = [...new Set(dataWithGroup.map(d => mode==='daily' ? d._groupKey : d.date?.slice(0,7)))].sort().reverse()
 
   async function loadSalesHistory() {
     setSalesLoading(true)
@@ -697,7 +731,12 @@ export default function AdminPage() {
               </div>
               <select value={filter} onChange={e=>setFilter(e.target.value)}>
                 <option value="all">전체 기간</option>
-                {labels.map(l=><option key={l} value={l}>{mode==='daily'?l:l.replace('-','년 ')+'월'}</option>)}
+                {labels.map(l=>{
+                  const suffix = l.includes('_') ? ' ' + l.split('_')[1] : ''
+                  const date   = l.split('_')[0]
+                  const label  = mode==='daily' ? date + suffix : date.replace('-','년 ')+'월'
+                  return <option key={l} value={l}>{label}</option>
+                })}
               </select>
             </div>
           </div>
