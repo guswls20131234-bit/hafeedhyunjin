@@ -31,9 +31,16 @@ function Stats({ data, filter, mode }) {
   const castrate = data.filter(d=>d.sex==='거세').length
   const total    = female+castrate
   const totalPrice  = data.reduce((a,d)=>a+(Number(d.price)||0),0)
-  const jojogeum    = data.reduce((a,d)=>a+(Number(d.jojogeum)||0), 0)
+  // jojogeum: date+금액 조합으로 중복 제거 후 합산
+  const jojoKeys = new Set()
+  let jojogeum = 0
+  for (const d of data) {
+    if (d.jojogeum > 0) {
+      const key = `${d.date}_${d.jojogeum}`
+      if (!jojoKeys.has(key)) { jojoKeys.add(key); jojogeum += Number(d.jojogeum) }
+    }
+  }
   // total_paid: date+금액 조합으로 중복 제거 후 합산
-  // (같은 날 여러 행에 동일값, 같은 날 A/B 출하면 다른 금액)
   const paidKeys = new Set()
   let totalPaid = 0
   for (const d of data) {
