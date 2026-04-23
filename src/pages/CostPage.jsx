@@ -27,6 +27,15 @@ const NOW = new Date()
 function numFmt(v) { return v ? Number(v).toLocaleString() : '—' }
 
 // 항목 그룹 카드
+function toComma(v) {
+  if (!v && v !== 0) return ''
+  const num = String(v).replace(/[^0-9]/g, '')
+  return num ? Number(num).toLocaleString() : ''
+}
+function fromComma(v) {
+  return Number(String(v).replace(/[^0-9]/g, '')) || 0
+}
+
 function CostGroupCard({ group, items, onAdd, onUpdate, onDelete, onLoadPrev }) {
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
@@ -35,7 +44,7 @@ function CostGroupCard({ group, items, onAdd, onUpdate, onDelete, onLoadPrev }) 
 
   function handleAdd() {
     if (!newAmt) return
-    onAdd({ category: group.key, name: newName||group.label, amount: parseFloat(newAmt)||0 })
+    onAdd({ category: group.key, name: newName||group.label, amount: fromComma(newAmt) })
     setNewName(''); setNewAmt(''); setAdding(false)
   }
 
@@ -66,8 +75,10 @@ function CostGroupCard({ group, items, onAdd, onUpdate, onDelete, onLoadPrev }) 
           <input value={item.name} onChange={e=>onUpdate(item.id,{name:e.target.value})}
             placeholder="항목명"
             style={{flex:1,padding:'6px 10px',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:6,fontSize:12,fontFamily:'inherit',outline:'none',background:'#fafafa'}}/>
-          <input value={item.amount} onChange={e=>onUpdate(item.id,{amount:e.target.value})}
-            type="number" min="0" placeholder="0"
+          <input
+            value={toComma(item.amount)}
+            onChange={e=>onUpdate(item.id,{amount:fromComma(e.target.value)})}
+            inputMode="numeric" placeholder="0"
             style={{width:110,padding:'6px 10px',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:6,fontSize:12,fontFamily:'inherit',outline:'none',background:'#fafafa',textAlign:'right'}}/>
           <span style={{fontSize:11,color:'#888',flexShrink:0}}>원</span>
           <button onClick={()=>onDelete(item.id)}
@@ -80,8 +91,10 @@ function CostGroupCard({ group, items, onAdd, onUpdate, onDelete, onLoadPrev }) 
           <input value={newName} onChange={e=>setNewName(e.target.value)}
             placeholder={`${group.label} 항목명`} autoFocus
             style={{flex:1,padding:'6px 10px',border:'0.5px solid rgba(0,0,0,0.15)',borderRadius:6,fontSize:12,fontFamily:'inherit',outline:'none'}}/>
-          <input value={newAmt} onChange={e=>setNewAmt(e.target.value)}
-            type="number" min="0" placeholder="금액"
+          <input
+            value={newAmt}
+            onChange={e=>setNewAmt(toComma(e.target.value))}
+            inputMode="numeric" placeholder="금액"
             style={{width:110,padding:'6px 10px',border:'0.5px solid rgba(0,0,0,0.15)',borderRadius:6,fontSize:12,fontFamily:'inherit',outline:'none',textAlign:'right'}}/>
           <span style={{fontSize:11,color:'#888',flexShrink:0}}>원</span>
           <button onClick={handleAdd}
@@ -128,25 +141,24 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
     setLoading(false)
   }
 
-  // 전월 카드값 항목 불러오기 (금액 제외)
-  async function loadPrevMonthCard() {
+  // 전월 항목 불러오기 (카테고리별, 금액 제외)
+  async function loadPrevMonth(categoryKey) {
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear  = month === 1 ? year - 1 : year
     const { data } = await supabase.from('cost_records')
-      .select('*').eq('farm_slug',slug).eq('year',prevYear).eq('month',prevMonth).eq('category','card')
+      .select('*').eq('farm_slug',slug).eq('year',prevYear).eq('month',prevMonth).eq('category',categoryKey)
       .order('created_at',{ascending:true})
-    if (!data || data.length === 0) { alert('전월 카드값 항목이 없습니다.'); return }
-    // 이미 이번달에 카드값 있으면 중복 체크
-    const existingCards = items.filter(it=>it.category==='card'&&!it.isDeleted)
-    if (existingCards.length > 0) {
-      if (!window.confirm('이미 카드값 항목이 있습니다. 전월 항목을 추가로 불러올까요?')) return
+    if (!data || data.length === 0) { alert('전월 항목이 없습니다.'); return }
+    const existingItems = items.filter(it=>it.category===categoryKey&&!it.isDeleted)
+    if (existingItems.length > 0) {
+      if (!window.confirm('이미 항목이 있습니다. 전월 항목을 추가로 불러올까요?')) return
     }
     const newItems = data.map(it=>({
       id: `new_${Date.now()}_${Math.random()}`,
       farm_slug: slug, year, month,
-      category: 'card',
+      category: categoryKey,
       name: it.name,
-      amount: 0, // 금액은 빈칸
+      amount: 0,
       memo: '',
       isNew: true,
     }))
@@ -262,7 +274,8 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
           return (
             <div key={g.key} style={{borderBottom:'0.5px solid rgba(0,0,0,0.05)'}}>
               <CostGroupCard group={g} items={gItems}
-                onAdd={handleAdd} onUpdate={handleUpdate} onDelete={handleDelete}/>
+                onAdd={handleAdd} onUpdate={handleUpdate} onDelete={handleDelete}
+                onLoadPrev={()=>loadPrevMonth(g.key)}/>
             </div>
           )
         })}
@@ -292,7 +305,7 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
         <CostGroupCard key={group.key} group={group}
           items={costByGroup[group.key]||[]}
           onAdd={handleAdd} onUpdate={handleUpdate} onDelete={handleDelete}
-          onLoadPrev={group.key==='card' ? loadPrevMonthCard : undefined}/>
+          onLoadPrev={()=>loadPrevMonth(group.key)}/>
       ))}
 
       {/* 손익 요약 */}
