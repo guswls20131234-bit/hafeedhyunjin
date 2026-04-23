@@ -97,12 +97,15 @@ function Stats({ data, filter, mode }) {
   const priceKg   = data.find(d=>d.price_kg>0)?.price_kg || 0
   const totalPrice  = data.reduce((a,d)=>a+(Number(d.price)||0),0)
   const jojogeum    = data.reduce((a,d)=>a+(Number(d.jojogeum)||0), 0)
-  // total_paid: 날짜별로 중복 제거 후 합산
-  const paidByDate = {}
+  // total_paid: date+금액 조합으로 중복 제거 후 합산
+  const paidKeys = new Set()
+  let totalPaid = 0
   for (const d of data) {
-    if (d.total_paid > 0 && !paidByDate[d.date]) paidByDate[d.date] = Number(d.total_paid)
+    if (d.total_paid > 0) {
+      const key = `${d.date}_${d.total_paid}`
+      if (!paidKeys.has(key)) { paidKeys.add(key); totalPaid += Number(d.total_paid) }
+    }
   }
-  const totalPaid = Object.values(paidByDate).reduce((a,v)=>a+v, 0)
   const totalDeduct = ['deduct_samgyup','deduct_moksim','deduct_fat','deduct_weight','deduct_grade','deduct_huji']
     .reduce((a,k) => a + (Number(data.find(d=>Number(d[k])>0)?.[k]) || 0), 0)
   const gradeBonus  = data.find(d=>d.grade_bonus>0)?.grade_bonus || 0
@@ -257,7 +260,11 @@ export default function AdminPage() {
   })
 
   const filtered = filter==='all' ? dataWithGroup : dataWithGroup.filter(d => d._groupKey === filter)
-  const labels = [...new Set(dataWithGroup.map(d => mode==='daily' ? d._groupKey : d.date?.slice(0,7)))].sort().reverse()
+  const allLabels = [...new Set(dataWithGroup.map(d => mode==='daily' ? d._groupKey : d.date?.slice(0,7)))].sort().reverse()
+  const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3)
+  const labels = mode==='daily'
+    ? allLabels.filter(l => new Date(l.split('_')[0]) >= threeMonthsAgo)
+    : allLabels
 
   async function loadSalesHistory() {
     setSalesLoading(true)
