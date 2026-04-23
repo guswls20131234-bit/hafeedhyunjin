@@ -165,16 +165,22 @@ function parseOurForm(json) {
   }
 
   let sheetMeatco = '', sheetPriceKg = 0
+  let sheetTotalPaid = 0, sheetJojogeum = 0
   for (let i = 0; i < Math.min(headerRow, json.length); i++) {
     const row = json[i]
     for (let ci = 0; ci < row.length; ci++) {
       const h = String(row[ci]).trim().replace(/\s/g, '')
+      const nextNum = () => { const v = parseFloat(row[ci+1]); return isNaN(v) ? 0 : v }
       if (h.includes('육가공') && !sheetMeatco)
         sheetMeatco = String(row[ci+2] || row[ci+1] || '').trim()
       if ((h.includes('시세') || h.includes('원/kg')) && !sheetPriceKg) {
         const val = parseFloat(row[ci+2] || row[ci+1] || 0)
         if (!isNaN(val)) sheetPriceKg = val
       }
+      if ((h.includes('총지급액') || h.includes('전금액')) && !sheetTotalPaid)
+        sheetTotalPaid = nextNum()
+      if (h.includes('자조금') && !sheetJojogeum)
+        sheetJojogeum = nextNum()
     }
   }
 
@@ -202,7 +208,16 @@ function parseOurForm(json) {
   }
 
   if (!rows.length) throw new Error('유효한 데이터가 없습니다.')
-  return { rows, sheetDate, sheetMeatco, sheetPriceKg }
+  const settlement = {
+    total_price: 0, jojogeum: sheetJojogeum, total_paid: sheetTotalPaid,
+    deduct_samgyup: 0, deduct_moksim: 0, deduct_fat: 0,
+    deduct_weight: 0, deduct_grade: 0, deduct_huji: 0, grade_bonus: 0
+  }
+  // total_paid 있으면 첫 번째 row에 settlement 붙이기
+  if (sheetTotalPaid > 0 && rows.length > 0) {
+    Object.assign(rows[0], settlement)
+  }
+  return { rows, sheetDate, sheetMeatco, sheetPriceKg, settlement }
 }
 
 // ── 메인 export ───────────────────────────────────────
