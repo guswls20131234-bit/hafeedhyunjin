@@ -18,6 +18,7 @@ const COST_GROUPS = [
   { key: 'semen',      label: '정액구입비',              color: '#0C447C', bg: '#E6F1FB' },
   { key: 'interest',   label: '이자비용',               color: '#A32D2D', bg: '#FCEBEB' },
   { key: 'repair',     label: '수리유지비',              color: '#6B6B68', bg: '#F5F6F4' },
+  { key: 'card',       label: '카드값',                color: '#7B3FA6', bg: '#F0E8FB' },
   { key: 'other',      label: '기타',                  color: '#888',    bg: '#F5F6F4' },
 ]
 const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
@@ -26,7 +27,7 @@ const NOW = new Date()
 function numFmt(v) { return v ? Number(v).toLocaleString() : '—' }
 
 // 항목 그룹 카드
-function CostGroupCard({ group, items, onAdd, onUpdate, onDelete }) {
+function CostGroupCard({ group, items, onAdd, onUpdate, onDelete, onLoadPrev }) {
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAmt,  setNewAmt]  = useState('')
@@ -49,7 +50,15 @@ function CostGroupCard({ group, items, onAdd, onUpdate, onDelete }) {
             </span>
           )}
         </div>
-        <span style={{fontSize:13,fontWeight:700,color:group.color}}>{total>0?total.toLocaleString()+'원':'—'}</span>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {onLoadPrev && (
+            <button onClick={onLoadPrev}
+              style={{padding:'4px 10px',background:'#F0E8FB',color:'#7B3FA6',border:'none',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>
+              📋 전월 불러오기
+            </button>
+          )}
+          <span style={{fontSize:13,fontWeight:700,color:group.color}}>{total>0?total.toLocaleString()+'원':'—'}</span>
+        </div>
       </div>
 
       {items.map((item,i)=>(
@@ -117,6 +126,32 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
     setItems(data||[])
     setDirty(false)
     setLoading(false)
+  }
+
+  // 전월 카드값 항목 불러오기 (금액 제외)
+  async function loadPrevMonthCard() {
+    const prevMonth = month === 1 ? 12 : month - 1
+    const prevYear  = month === 1 ? year - 1 : year
+    const { data } = await supabase.from('cost_records')
+      .select('*').eq('farm_slug',slug).eq('year',prevYear).eq('month',prevMonth).eq('category','card')
+      .order('created_at',{ascending:true})
+    if (!data || data.length === 0) { alert('전월 카드값 항목이 없습니다.'); return }
+    // 이미 이번달에 카드값 있으면 중복 체크
+    const existingCards = items.filter(it=>it.category==='card'&&!it.isDeleted)
+    if (existingCards.length > 0) {
+      if (!window.confirm('이미 카드값 항목이 있습니다. 전월 항목을 추가로 불러올까요?')) return
+    }
+    const newItems = data.map(it=>({
+      id: `new_${Date.now()}_${Math.random()}`,
+      farm_slug: slug, year, month,
+      category: 'card',
+      name: it.name,
+      amount: 0, // 금액은 빈칸
+      memo: '',
+      isNew: true,
+    }))
+    setItems(prev=>[...prev, ...newItems])
+    setDirty(true)
   }
 
   function handleAdd({ category, name, amount }) {
@@ -256,7 +291,8 @@ export default function CostPage({ farmSlug, shipments, feedRecords }) {
       {COST_GROUPS.map(group=>(
         <CostGroupCard key={group.key} group={group}
           items={costByGroup[group.key]||[]}
-          onAdd={handleAdd} onUpdate={handleUpdate} onDelete={handleDelete}/>
+          onAdd={handleAdd} onUpdate={handleUpdate} onDelete={handleDelete}
+          onLoadPrev={group.key==='card' ? loadPrevMonthCard : undefined}/>
       ))}
 
       {/* 손익 요약 */}
