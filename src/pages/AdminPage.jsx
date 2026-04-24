@@ -22,10 +22,73 @@ function gradeLabel(cw,bf){
   return {text:'등외',color:'#5F5E5A',bg:'#F1EFE8'}
 }
 
-function DetailTable({ data }) {
+function DetailTable({ data, statsData }) {
   const [open, setOpen] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState(null)
+  const [aiError, setAiError] = useState(null)
+
   if (!data.length) return null
   const sorted = [...data].sort((a,b)=>String(a.pig_id||'').localeCompare(String(b.pig_id||'')))
+
+  async function runAI() {
+    setAiLoading(true); setAiResult(null); setAiError(null)
+    const sd = statsData || {}
+    const total = data.length
+    const avgCw = (data.reduce((a,d)=>a+d.cw,0)/total).toFixed(1)
+    const avgBf = (data.reduce((a,d)=>a+d.bf,0)/total).toFixed(1)
+    const lightCount = data.filter(d=>d.cw<70).length
+    const thinBackfat2 = data.filter(d=>d.bf<=15 && (d.grade==='2'||(!d.grade&&d.cw<83))).length
+    const grades = { "1+":0, "1":0, "2":0, "E":0 }
+    data.forEach(d=>{ const g = gradeLabel(d.cw,d.bf).text; if(grades[g]!==undefined) grades[g]++ })
+    const avgPrice = data.filter(d=>d.price>0).length > 0
+      ? Math.round(data.filter(d=>d.price>0).reduce((a,d)=>a+d.price,0)/data.filter(d=>d.price>0).length)
+      : 0
+
+    const prompt = `당신은 양돈 출하 성적 전문 분석가입니다. 아래 출하 데이터를 분석하고 금액적으로 개선 가능한 포인트를 찾아주세요.
+
+[출하 데이터]
+- 총 출하두수: ${total}두
+- 평균 도체중: ${avgCw}kg
+- 평균 등지방: ${avgBf}mm
+- 평균 단가: ${avgPrice.toLocaleString()}원/kg
+- 1+등급: ${grades["1+"]}두 / 1등급: ${grades["1"]}두 / 2등급: ${grades["2"]}두 / E등급: ${grades["E"]}두
+- 70kg 미만 경량 개체: ${lightCount}두
+- 등지방 15mm 이하 2등급 의심 개체: ${thinBackfat2}두
+
+다음을 분석해주세요:
+1. 경량 출하(70kg 미만) 손실 추정 (80kg 기준, 현재 평균단가 적용)
+2. 등급 개선 가능 개체와 예상 추가 수익
+3. 가장 시급한 개선 포인트
+
+반드시 아래 JSON만 응답하세요:
+{
+  "lightweight": {"count":숫자,"estimatedLoss":숫자,"advice":"조언"},
+  "gradeImprovement": {"targetCount":숫자,"estimatedGain":숫자,"advice":"조언"},
+  "topPriority": {"title":"제목","detail":"상세내용","estimatedEffect":숫자},
+  "overallComment": "한줄평가"
+}`
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          messages:[{role:"user",content:prompt}]
+        })
+      })
+      const d = await res.json()
+      const text = d.content.map(c=>c.text||"").join("")
+      const parsed = JSON.parse(text.replace(/```json|```/g,"").trim())
+      setAiResult(parsed)
+    } catch(e) {
+      setAiError("분석 중 오류가 발생했어요.")
+    }
+    setAiLoading(false)
+  }
+
   return (
     <div style={{marginTop:12}}>
       <button onClick={()=>setOpen(v=>!v)}
@@ -64,6 +127,57 @@ function DetailTable({ data }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* AI 분석 버튼 */}
+      <button onClick={runAI} disabled={aiLoading}
+        style={{width:'100%',marginTop:10,padding:'11px',background:aiLoading?'#aaa':'#0F2A1E',color:'white',border:'none',
+          borderRadius:9,fontSize:13,fontWeight:700,cursor:aiLoading?'not-allowed':'pointer',fontFamily:'inherit',
+          display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+        {aiLoading ? <>⟳ AI 분석 중...</> : <>🤖 AI 출하 성적 분석</>}
+      </button>
+
+      {aiError && <div style={{marginTop:8,padding:12,background:'#FDECEA',borderRadius:8,fontSize:12,color:'#C0392B'}}>{aiError}</div>}
+
+      {aiResult && (
+        <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
+          {/* 총평 */}
+          <div style={{background:'#0F2A1E',borderRadius:10,padding:14,color:'white'}}>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',marginBottom:4}}>🤖 AI 총평</div>
+            <div style={{fontSize:12,lineHeight:1.6,color:'rgba(255,255,255,0.9)'}}>{aiResult.overallComment}</div>
+          </div>
+
+          {/* 최우선 개선 */}
+          <div style={{background:'#FEF5E7',border:'1.5px solid #F39C12',borderRadius:10,padding:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#935A07',marginBottom:6}}>⚡ 최우선 개선 포인트</div>
+            <div style={{fontSize:13,fontWeight:700,color:'#1a1a18',marginBottom:4}}>{aiResult.topPriority?.title}</div>
+            <div style={{fontSize:12,color:'#555',lineHeight:1.6,marginBottom:8}}>{aiResult.topPriority?.detail}</div>
+            {aiResult.topPriority?.estimatedEffect > 0 && (
+              <div style={{background:'white',borderRadius:7,padding:'7px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:11,color:'#888'}}>예상 추가 수익</span>
+                <span style={{fontSize:15,fontWeight:800,color:'#1D9E75'}}>+{aiResult.topPriority.estimatedEffect.toLocaleString()}원</span>
+              </div>
+            )}
+          </div>
+
+          {/* 경량 / 등급 카드 */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:10,padding:12}}>
+              <div style={{fontSize:11,fontWeight:600,marginBottom:8}}>⚖️ 경량 출하 손실</div>
+              <div style={{fontSize:18,fontWeight:700,color:'#C0392B',marginBottom:4}}>
+                -{(aiResult.lightweight?.estimatedLoss||0).toLocaleString()}<span style={{fontSize:10}}>원</span>
+              </div>
+              <div style={{fontSize:11,color:'#555',lineHeight:1.5}}>{aiResult.lightweight?.advice}</div>
+            </div>
+            <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:10,padding:12}}>
+              <div style={{fontSize:11,fontWeight:600,marginBottom:8}}>📈 등급 개선 가능</div>
+              <div style={{fontSize:18,fontWeight:700,color:'#1D9E75',marginBottom:4}}>
+                +{(aiResult.gradeImprovement?.estimatedGain||0).toLocaleString()}<span style={{fontSize:10}}>원</span>
+              </div>
+              <div style={{fontSize:11,color:'#555',lineHeight:1.5}}>{aiResult.gradeImprovement?.advice}</div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -763,7 +877,7 @@ export default function AdminPage() {
             <div className="leg-item"><div className="leg-rect" style={{background:'rgba(210,40,40,0.10)',border:'2px solid rgba(210,40,40,0.7)'}}></div>1등급+</div>
             <div className="leg-item"><div className="leg-rect" style={{background:'rgba(55,138,221,0.08)',border:'2px solid rgba(55,138,221,0.6)'}}></div>1등급</div>
           </div>
-          <DetailTable data={filtered}/>
+          <DetailTable data={filtered} statsData={{avgCw: (filtered.reduce((a,d)=>a+d.cw,0)/filtered.length||0).toFixed(1)}}/>
         </div>
       )}
     </>)}
