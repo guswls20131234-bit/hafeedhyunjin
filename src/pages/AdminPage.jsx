@@ -22,14 +22,139 @@ function gradeLabel(cw,bf){
   return {text:'등외',color:'#5F5E5A',bg:'#F1EFE8'}
 }
 
-function DetailTable({ data, statsData }) {
+function DetailTable({ data }) {
   const [open, setOpen] = useState(false)
+  const [aiComment, setAiComment] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiResult, setAiResult] = useState(null)
-  const [aiError, setAiError] = useState(null)
 
   if (!data.length) return null
   const sorted = [...data].sort((a,b)=>String(a.pig_id||'').localeCompare(String(b.pig_id||'')))
+
+  // 도체중 개선 계산 (코드로 정확하게)
+  const TARGET_CW = 80
+  const avgPrice = data.filter(d=>d.price>0).length > 0
+    ? Math.round(data.filter(d=>d.price>0).reduce((a,d)=>a+d.price,0)/data.filter(d=>d.price>0).length)
+    : 0
+  const lightAnimals = data.filter(d=>d.cw < TARGET_CW)
+  const totalGain    = lightAnimals.reduce((a,d)=>a+(TARGET_CW-d.cw)*avgPrice, 0)
+  const avgCw        = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
+  const avgBf        = (data.reduce((a,d)=>a+d.bf,0)/data.length).toFixed(1)
+  const grades       = {"1+":0,"1":0,"2":0,"E":0}
+  data.forEach(d=>{ const g=gradeLabel(d.cw,d.bf).text; if(grades[g]!==undefined) grades[g]++ })
+
+  async function getComment() {
+    setAiLoading(true); setAiComment(null)
+    try {
+      const res = await fetch("/api/claude", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"gpt-4o-mini",
+          max_tokens:200,
+          messages:[{role:"user", content:
+            `양돈 출하 데이터를 보고 한국어로 2문장 이내 핵심 조언만 해주세요.
+- 출하두수: ${data.length}두
+- 평균 도체중: ${avgCw}kg (목표 80kg)
+- 80kg 미만 개체: ${lightAnimals.length}두
+- 예상 추가 수익: ${totalGain.toLocaleString()}원
+- 평균 등지방: ${avgBf}mm
+- 등급: 1+${grades["1+"]}두 / 1등${grades["1"]}두 / 2등${grades["2"]}두 / E${grades["E"]}두
+짧고 실용적으로만 답하세요.`
+          }]
+        })
+      })
+      const d = await res.json()
+      const text = d.content?.[0]?.text || d.choices?.[0]?.message?.content || ''
+      setAiComment(text.trim())
+    } catch(e) {
+      setAiComment("분석 중 오류가 발생했어요.")
+    }
+    setAiLoading(false)
+  }
+
+  return (
+    <div style={{marginTop:12}}>
+      <button onClick={()=>setOpen(v=>!v)}
+        style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',
+          padding:'10px 14px',background:'#F5F6F4',border:'0.5px solid rgba(0,0,0,0.10)',
+          borderRadius:8,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:500,color:'#1a1a18'}}>
+        <span>개체별 보기 ({data.length}두)</span>
+        <span style={{fontSize:11,color:'#888',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+      </button>
+      {open&&(
+        <div style={{marginTop:8,overflowX:'auto',borderRadius:8,border:'0.5px solid rgba(0,0,0,0.10)'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,minWidth:520}}>
+            <thead>
+              <tr style={{background:'#F5F6F4'}}>
+                {['개체번호','암수','생체중(kg)','도체중(kg)','등지방(mm)','생돈대(원)','등급'].map(h=>(
+                  <th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:500,color:'#6b6b68',borderBottom:'0.5px solid rgba(0,0,0,0.10)',whiteSpace:'nowrap'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((d,i)=>{
+                const g=gradeLabel(d.cw,d.bf)
+                return (
+                  <tr key={i} style={{borderBottom:'0.5px solid rgba(0,0,0,0.07)',background:i%2===0?'#fff':'#fafafa'}}>
+                    <td style={{padding:'8px 12px',fontWeight:500}}>{d.pig_id||'—'}</td>
+                    <td style={{padding:'8px 12px'}}>{d.sex||'—'}</td>
+                    <td style={{padding:'8px 12px'}}>{d.lw?Number(d.lw).toFixed(1):'—'}</td>
+                    <td style={{padding:'8px 12px'}}>{Number(d.cw).toFixed(1)}</td>
+                    <td style={{padding:'8px 12px'}}>{Number(d.bf).toFixed(1)}</td>
+                    <td style={{padding:'8px 12px'}}>{d.price?Number(d.price).toLocaleString()+'원':'—'}</td>
+                    <td style={{padding:'8px 12px'}}>
+                      <span style={{fontSize:11,padding:'2px 8px',borderRadius:99,fontWeight:500,background:g.bg,color:g.color}}>{g.text}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 도체중 개선 분석 카드 */}
+      {avgPrice > 0 && (
+        <div style={{marginTop:10,background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:10,padding:14}}>
+          <div style={{fontSize:12,fontWeight:600,color:'#1a1a18',marginBottom:10}}>⚖️ 도체중 개선 예상 수익</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
+            <div style={{background:'#F5F6F4',borderRadius:8,padding:'8px 10px'}}>
+              <div style={{fontSize:10,color:'#888',marginBottom:2}}>80kg 미만</div>
+              <div style={{fontSize:16,fontWeight:700,color:'#E67E22'}}>{lightAnimals.length}<span style={{fontSize:11,marginLeft:2}}>두</span></div>
+            </div>
+            <div style={{background:'#F5F6F4',borderRadius:8,padding:'8px 10px'}}>
+              <div style={{fontSize:10,color:'#888',marginBottom:2}}>평균 도체중</div>
+              <div style={{fontSize:16,fontWeight:700,color:'#1a1a18'}}>{avgCw}<span style={{fontSize:11,marginLeft:2}}>kg</span></div>
+            </div>
+            <div style={{background:'#E1F5EE',borderRadius:8,padding:'8px 10px'}}>
+              <div style={{fontSize:10,color:'#085041',marginBottom:2}}>예상 추가 수익</div>
+              <div style={{fontSize:14,fontWeight:700,color:'#085041'}}>+{totalGain.toLocaleString()}<span style={{fontSize:10,marginLeft:1}}>원</span></div>
+            </div>
+          </div>
+          <div style={{fontSize:10,color:'#aaa',marginBottom:10}}>
+            * 80kg 미만 {lightAnimals.length}두 × 부족 도체중 × 평균단가 {avgPrice.toLocaleString()}원/kg 기준
+          </div>
+
+          {/* AI 코멘트 */}
+          {!aiComment && (
+            <button onClick={getComment} disabled={aiLoading}
+              style={{width:'100%',padding:'9px',background:aiLoading?'#aaa':'#0F2A1E',color:'white',border:'none',
+                borderRadius:8,fontSize:12,fontWeight:600,cursor:aiLoading?'not-allowed':'pointer',fontFamily:'inherit',
+                display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+              {aiLoading ? '🤖 분석 중...' : '🤖 AI 코멘트 보기'}
+            </button>
+          )}
+          {aiComment && (
+            <div style={{background:'#0F2A1E',borderRadius:8,padding:'10px 14px',display:'flex',gap:8,alignItems:'flex-start'}}>
+              <span style={{fontSize:14,flexShrink:0}}>🤖</span>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.85)',lineHeight:1.7}}>{aiComment}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
   async function runAI() {
     setAiLoading(true); setAiResult(null); setAiError(null)
@@ -877,7 +1002,7 @@ export default function AdminPage() {
             <div className="leg-item"><div className="leg-rect" style={{background:'rgba(210,40,40,0.10)',border:'2px solid rgba(210,40,40,0.7)'}}></div>1등급+</div>
             <div className="leg-item"><div className="leg-rect" style={{background:'rgba(55,138,221,0.08)',border:'2px solid rgba(55,138,221,0.6)'}}></div>1등급</div>
           </div>
-          <DetailTable data={filtered} statsData={{avgCw: (filtered.reduce((a,d)=>a+d.cw,0)/filtered.length||0).toFixed(1)}}/>
+          <DetailTable data={filtered}/>
         </div>
       )}
     </>)}
