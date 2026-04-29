@@ -16,6 +16,7 @@ const COST_GROUPS = [
   { key: 'utility',    label: '수도광열비',              color: '#C47B2B', bg: '#FDF3E3' },
   { key: 'manure',     label: '분뇨처리비',              color: '#5F5E5A', bg: '#F1EFE8' },
   { key: 'semen',      label: '정액구입비',              color: '#0C447C', bg: '#E6F1FB' },
+  { key: 'transport',  label: '운송비',                  color: '#2E86AB', bg: '#E3F4FB' },
   { key: 'interest',   label: '이자비용',               color: '#A32D2D', bg: '#FCEBEB' },
   { key: 'repair',     label: '수리유지비',              color: '#6B6B68', bg: '#F5F6F4' },
   { key: 'card',       label: '카드값',                color: '#7B3FA6', bg: '#F0E8FB' },
