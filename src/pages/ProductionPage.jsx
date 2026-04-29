@@ -220,28 +220,6 @@ export default function ProductionPage({ farmSlug }) {
         </div>
       </div>
 
-      {/* 폐사 입력 */}
-      <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:16,marginBottom:10}}>
-        <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>💀 {month}월 폐사 현황</div>
-        <div style={{fontSize:11,color:'#aaa',marginBottom:12}}>구간별 폐사두수 입력</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-          {DEAD_FIELDS.map(({key,label,color,bg})=>(
-            <div key={key} style={{background:bg,borderRadius:10,padding:'10px 12px'}}>
-              <div style={{fontSize:11,color,marginBottom:6,fontWeight:600}}>{label}</div>
-              <div style={{display:'flex',alignItems:'center',gap:5}}>
-                <input type="number" min="0" value={vals[key]||''} onChange={e=>setVal(key,e.target.value)} placeholder="0"
-                  style={{...inp,background:'white',borderColor:color,fontSize:16,fontWeight:600,color}}/>
-                <span style={{fontSize:11,color:'#888',flexShrink:0}}>두</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{marginTop:12,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:12,color:'#888'}}>이번 달 총 폐사</span>
-          <span style={{fontSize:18,fontWeight:700,color:'#C0392B'}}>{totalDead}<span style={{fontSize:11,marginLeft:2,color:'#888'}}>두</span></span>
-        </div>
-      </div>
-
       {/* 연간 현황 테이블 */}
       {records.length>0 && (<>
         <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:16,marginBottom:10}}>
@@ -337,8 +315,32 @@ export default function ProductionPage({ farmSlug }) {
             </div>
           </div>
         </div>
+      </>)}
 
-        {/* 폐사 추이 */}
+      {/* 폐사 입력 */}
+      <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:16,marginBottom:10}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>💀 {month}월 폐사 현황</div>
+        <div style={{fontSize:11,color:'#aaa',marginBottom:12}}>구간별 폐사두수 입력</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {DEAD_FIELDS.map(({key,label,color,bg})=>(
+            <div key={key} style={{background:bg,borderRadius:10,padding:'10px 12px'}}>
+              <div style={{fontSize:11,color,marginBottom:6,fontWeight:600}}>{label}</div>
+              <div style={{display:'flex',alignItems:'center',gap:5}}>
+                <input type="number" min="0" value={vals[key]||''} onChange={e=>setVal(key,e.target.value)} placeholder="0"
+                  style={{...inp,background:'white',borderColor:color,fontSize:16,fontWeight:600,color}}/>
+                <span style={{fontSize:11,color:'#888',flexShrink:0}}>두</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:12,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:12,color:'#888'}}>이번 달 총 폐사</span>
+          <span style={{fontSize:18,fontWeight:700,color:'#C0392B'}}>{totalDead}<span style={{fontSize:11,marginLeft:2,color:'#888'}}>두</span></span>
+        </div>
+      </div>
+
+      {/* 폐사 추이 */}
+      {records.length>0 && (
         <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:16,marginBottom:10}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>📉 월별 폐사 추이</div>
           {records.map((r,i)=>{
@@ -403,7 +405,7 @@ export default function ProductionPage({ farmSlug }) {
             </table>
           </div>
         </div>
-      </>)}
+      )}
 
       {records.length===0 && !loading && (
         <div style={{background:'white',borderRadius:12,padding:'40px',textAlign:'center',border:'0.5px solid rgba(0,0,0,0.08)'}}>
@@ -411,6 +413,81 @@ export default function ProductionPage({ farmSlug }) {
           <div style={{fontSize:13,color:'#aaa'}}>아직 입력된 데이터가 없습니다.</div>
         </div>
       )}
+
+      {/* 월별 예상 출하두수 그래프 */}
+      {records.length > 0 && (() => {
+        // 이유두수 × 0.9 → 5개월 후 예상 출하
+        const shipmentData = records
+          .filter(r => r.weaned > 0)
+          .map(r => {
+            const shipMonth = r.month + 5 > 12 ? r.month + 5 - 12 : r.month + 5
+            const shipYear  = r.month + 5 > 12 ? year + 1 : year
+            return {
+              weanMonth: r.month,
+              weanYear:  year,
+              shipMonth,
+              shipYear,
+              weaned:   r.weaned,
+              expected: Math.round(r.weaned * 0.9),
+            }
+          })
+          .sort((a,b) => a.shipYear*100+a.shipMonth - (b.shipYear*100+b.shipMonth))
+
+        if (!shipmentData.length) return null
+        const maxExpected = Math.max(...shipmentData.map(d=>d.expected), 1)
+        const currentMonth = NOW.getMonth() + 1
+        const currentYear  = NOW.getFullYear()
+
+        return (
+          <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:16,marginTop:10}}>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>🐷 월별 예상 출하두수</div>
+            <div style={{fontSize:11,color:'#aaa',marginBottom:14}}>이유두수 × 90% · 이유 후 5개월 기준</div>
+
+            {shipmentData.map((d,i)=>{
+              const pct = (d.expected / maxExpected) * 100
+              const isPast = d.shipYear < currentYear || (d.shipYear===currentYear && d.shipMonth < currentMonth)
+              const isCurrent = d.shipYear===currentYear && d.shipMonth===currentMonth
+              return (
+                <div key={i} style={{marginBottom:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{
+                        fontSize:11,fontWeight:isCurrent?700:500,
+                        color:isCurrent?'#085041':isPast?'#aaa':'#1a1a18'
+                      }}>
+                        {d.shipYear!==year ? `${d.shipYear}년 ` : ''}{d.shipMonth}월 출하
+                        {isCurrent && <span style={{fontSize:10,color:'#1D9E75',marginLeft:4,fontWeight:600}}>← 이번달</span>}
+                      </span>
+                      <span style={{fontSize:10,color:'#bbb'}}>({d.weanMonth}월 이유)</span>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <span style={{fontSize:13,fontWeight:700,color:isCurrent?'#085041':isPast?'#aaa':'#378ADD'}}>
+                        {d.expected.toLocaleString()}두
+                      </span>
+                      <span style={{fontSize:10,color:'#bbb',marginLeft:4}}>({d.weaned}×0.9)</span>
+                    </div>
+                  </div>
+                  <div style={{background:'#F1EFE8',borderRadius:99,height:12,overflow:'hidden'}}>
+                    <div style={{
+                      width:`${pct}%`,height:'100%',borderRadius:99,
+                      background: isCurrent ? '#1D9E75' : isPast ? '#ccc' : '#378ADD',
+                      transition:'width 0.4s'
+                    }}/>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* 합계 */}
+            <div style={{marginTop:12,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:12,color:'#888'}}>연간 예상 총 출하</span>
+              <span style={{fontSize:15,fontWeight:700,color:'#085041'}}>
+                {shipmentData.filter(d=>d.shipYear===year).reduce((a,d)=>a+d.expected,0).toLocaleString()}두
+              </span>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
