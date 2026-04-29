@@ -22,6 +22,7 @@ export default function ProductionPage({ farmSlug }) {
   const [year,    setYear]    = useState(NOW.getFullYear())
   const [month,   setMonth]   = useState(NOW.getMonth()+1)
   const [records, setRecords] = useState([])
+  const [prevRecords, setPrevRecords] = useState([]) // 전년도 8~12월
   const [loading, setLoading] = useState(false)
   const [saving,  setSaving]  = useState(false)
   const [status,  setStatus]  = useState(null)
@@ -54,9 +55,16 @@ export default function ProductionPage({ farmSlug }) {
 
   async function loadRecords() {
     setLoading(true)
-    const { data } = await supabase.from('production_records').select('*')
-      .eq('farm_slug', slug).eq('year', year).order('month', {ascending:true})
-    setRecords(data||[])
+    // 현재 연도 + 전년도 8~12월 데이터 함께 불러오기 (예상출하 1~5월용)
+    const [curr, prev] = await Promise.all([
+      supabase.from('production_records').select('*')
+        .eq('farm_slug', slug).eq('year', year).order('month', {ascending:true}),
+      supabase.from('production_records').select('*')
+        .eq('farm_slug', slug).eq('year', year-1)
+        .gte('month', 8).order('month', {ascending:true}),
+    ])
+    setRecords(curr.data||[])
+    setPrevRecords(prev.data||[])
     setLoading(false)
   }
 
@@ -415,23 +423,30 @@ export default function ProductionPage({ farmSlug }) {
       )}
 
       {/* 월별 예상 출하두수 그래프 */}
-      {records.length > 0 && (() => {
-        // 이유두수 × 0.9 → 5개월 후 예상 출하
-        const shipmentData = records
+      {(() => {
+        // 전년 8~12월 + 올해 1~7월 이유두수 합쳐서 12개월 예상출하 계산
+        const allWeaned = [
+          ...prevRecords.map(r=>({year:year-1, month:r.month, weaned:r.weaned||0})),
+          ...records.map(r=>({year, month:r.month, weaned:r.weaned||0})),
+        ]
+
+        const shipmentData = allWeaned
           .filter(r => r.weaned > 0)
           .map(r => {
-            const shipMonth = r.month + 5 > 12 ? r.month + 5 - 12 : r.month + 5
-            const shipYear  = r.month + 5 > 12 ? year + 1 : year
+            const totalMonth = r.year * 12 + r.month + 5
+            const shipYear  = Math.floor((totalMonth - 1) / 12)
+            const shipMonth = totalMonth - shipYear * 12
             return {
               weanMonth: r.month,
-              weanYear:  year,
+              weanYear:  r.year,
               shipMonth,
               shipYear,
               weaned:   r.weaned,
               expected: Math.round(r.weaned * 0.9),
             }
           })
-          .sort((a,b) => a.shipYear*100+a.shipMonth - (b.shipYear*100+b.shipMonth))
+          .filter(d => d.shipYear === year) // 올해 출하분만
+          .sort((a,b) => a.shipMonth - b.shipMonth)
 
         if (!shipmentData.length) return null
         const maxExpected = Math.max(...shipmentData.map(d=>d.expected), 1)
@@ -440,25 +455,24 @@ export default function ProductionPage({ farmSlug }) {
 
         return (
           <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:12,padding:16,marginTop:10}}>
-            <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>🐷 월별 예상 출하두수</div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>🐷 {year}년 월별 예상 출하두수</div>
             <div style={{fontSize:11,color:'#aaa',marginBottom:14}}>이유두수 × 90% · 이유 후 5개월 기준</div>
 
             {shipmentData.map((d,i)=>{
               const pct = (d.expected / maxExpected) * 100
-              const isPast = d.shipYear < currentYear || (d.shipYear===currentYear && d.shipMonth < currentMonth)
-              const isCurrent = d.shipYear===currentYear && d.shipMonth===currentMonth
+              const isPast    = year < currentYear || (year===currentYear && d.shipMonth < currentMonth)
+              const isCurrent = year===currentYear && d.shipMonth===currentMonth
               return (
                 <div key={i} style={{marginBottom:10}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <span style={{
-                        fontSize:11,fontWeight:isCurrent?700:500,
-                        color:isCurrent?'#085041':isPast?'#aaa':'#1a1a18'
-                      }}>
-                        {d.shipYear!==year ? `${d.shipYear}년 ` : ''}{d.shipMonth}월 출하
+                      <span style={{fontSize:11,fontWeight:isCurrent?700:500,color:isCurrent?'#085041':isPast?'#aaa':'#1a1a18'}}>
+                        {d.shipMonth}월 출하
                         {isCurrent && <span style={{fontSize:10,color:'#1D9E75',marginLeft:4,fontWeight:600}}>← 이번달</span>}
                       </span>
-                      <span style={{fontSize:10,color:'#bbb'}}>({d.weanMonth}월 이유)</span>
+                      <span style={{fontSize:10,color:'#bbb'}}>
+                        ({d.weanYear!==year?`${d.weanYear}년 `:''}{d.weanMonth}월 이유)
+                      </span>
                     </div>
                     <div style={{textAlign:'right'}}>
                       <span style={{fontSize:13,fontWeight:700,color:isCurrent?'#085041':isPast?'#aaa':'#378ADD'}}>
@@ -478,11 +492,10 @@ export default function ProductionPage({ farmSlug }) {
               )
             })}
 
-            {/* 합계 */}
             <div style={{marginTop:12,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontSize:12,color:'#888'}}>연간 예상 총 출하</span>
+              <span style={{fontSize:12,color:'#888'}}>{year}년 연간 예상 총 출하</span>
               <span style={{fontSize:15,fontWeight:700,color:'#085041'}}>
-                {shipmentData.filter(d=>d.shipYear===year).reduce((a,d)=>a+d.expected,0).toLocaleString()}두
+                {shipmentData.reduce((a,d)=>a+d.expected,0).toLocaleString()}두
               </span>
             </div>
           </div>
