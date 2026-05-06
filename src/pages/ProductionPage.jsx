@@ -97,7 +97,6 @@ export default function ProductionPage({ farmSlug }) {
   // 자동계산
   const bpf      = vals.farrowing>0 ? (vals.born/vals.farrowing).toFixed(1)   : '—'
   const wpw      = vals.weaning>0   ? (vals.weaned/vals.weaning).toFixed(1)    : '—'
-  const psy      = vals.sows>0 && vals.weaned>0 ? ((vals.weaned/vals.sows)*12).toFixed(1) : '—'
   // 임신진단 - 공태 자동계산, 수태율 자동계산
   const diagOpen = vals.diag_total>0 && vals.diag_preg>0
     ? vals.diag_total - Number(vals.diag_preg)
@@ -221,10 +220,6 @@ export default function ProductionPage({ farmSlug }) {
             <div style={{fontSize:9,color:'#633806',marginBottom:2}}>복당 이유두수</div>
             <div style={{fontSize:16,fontWeight:700,color:'#633806'}}>{wpw}<span style={{fontSize:10,marginLeft:1}}>두</span></div>
           </div>
-          <div style={{background:'#EDE8FB',borderRadius:8,padding:'8px 10px'}}>
-            <div style={{fontSize:9,color:'#5B3FA6',marginBottom:2}}>PSY</div>
-            <div style={{fontSize:16,fontWeight:700,color:'#5B3FA6'}}>{psy}<span style={{fontSize:10,marginLeft:1}}>두</span></div>
-          </div>
         </div>
       </div>
 
@@ -236,7 +231,7 @@ export default function ProductionPage({ farmSlug }) {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:560}}>
               <thead>
                 <tr style={{background:'#F5F6F4'}}>
-                  {['월','모돈','종부','분만','산자','이유복','이유두','복당산자','복당이유','PSY','수태율'].map(h=>(
+                  {['월','모돈','종부','분만','산자','이유복','이유두','복당산자','복당이유','수태율'].map(h=>(
                     <th key={h} style={{padding:'6px 6px',textAlign:'center',fontWeight:500,color:'#6b6b68',borderBottom:'0.5px solid rgba(0,0,0,0.08)',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
                   ))}
                 </tr>
@@ -245,7 +240,6 @@ export default function ProductionPage({ farmSlug }) {
                 {records.map((r,i)=>{
                   const b  = r.farrowing>0?(r.born/r.farrowing).toFixed(1):'—'
                   const w  = r.weaning>0?(r.weaned/r.weaning).toFixed(1):'—'
-                  const p  = r.sows>0?(r.weaned/r.sows*12).toFixed(1):'—'
                   const dr = r.diag_total>0&&r.diag_preg>0?((r.diag_preg/r.diag_total)*100).toFixed(1)+'%':'—'
                   const isCur = r.month===month
                   return (
@@ -260,7 +254,6 @@ export default function ProductionPage({ farmSlug }) {
                       <td style={{padding:'7px 6px',textAlign:'center'}}>{r.weaned||'—'}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500}}>{b}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500}}>{w}</td>
-                      <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#5B3FA6'}}>{p}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500,color:'#2563EB'}}>{dr}</td>
                     </tr>
                   )
@@ -278,7 +271,6 @@ export default function ProductionPage({ farmSlug }) {
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600}}>{tot('weaned')}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>{tot('farrowing')>0?(tot('born')/tot('farrowing')).toFixed(1):'—'}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>{tot('weaning')>0?(tot('weaned')/tot('weaning')).toFixed(1):'—'}</td>
-                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#5B3FA6'}}>—</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#2563EB'}}>{tot('diag_total')>0?((tot('diag_preg')/tot('diag_total'))*100).toFixed(1)+'%':'—'}</td>
                   </tr>
                 </tfoot>
@@ -322,6 +314,37 @@ export default function ProductionPage({ farmSlug }) {
               ))}
             </div>
           </div>
+
+          {/* 연간 PSY 카드 */}
+          {(() => {
+            const totFarrowing = tot('farrowing')
+            const totWeaning   = tot('weaning')
+            const totWeaned    = tot('weaned')
+            const avgSows      = records.filter(r=>r.sows>0).length > 0
+              ? records.filter(r=>r.sows>0).reduce((a,r)=>a+(r.sows||0),0) / records.filter(r=>r.sows>0).length
+              : 0
+            if (!totFarrowing || !avgSows || !totWeaning) return null
+            // PSY = 모돈회전율 × 복당이유두수
+            // 모돈회전율 = 전체분만복수 / (평균상시모돈수 / 12)
+            const turnover = totFarrowing / (avgSows / 12)
+            const wpwTotal = totWeaned / totWeaning
+            const psy      = (turnover * wpwTotal).toFixed(1)
+            return (
+              <div style={{marginTop:14,paddingTop:14,borderTop:'0.5px solid rgba(0,0,0,0.08)',
+                display:'flex',alignItems:'center',justifyContent:'space-between',
+                background:'#EDE8FB',borderRadius:10,padding:'12px 16px',marginTop:14}}>
+                <div>
+                  <div style={{fontSize:10,color:'#5B3FA6',marginBottom:4,fontWeight:600}}>🐷 {year}년 연간 PSY</div>
+                  <div style={{fontSize:11,color:'#7B6BA8',lineHeight:1.6}}>
+                    모돈회전율 {turnover.toFixed(2)}회 × 복당이유 {wpwTotal.toFixed(1)}두
+                  </div>
+                </div>
+                <div style={{fontSize:28,fontWeight:800,color:'#5B3FA6'}}>
+                  {psy}<span style={{fontSize:13,marginLeft:2}}>두</span>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </>)}
 
