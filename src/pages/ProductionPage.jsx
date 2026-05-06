@@ -320,19 +320,36 @@ export default function ProductionPage({ farmSlug }) {
             const totFarrowing = tot('farrowing')
             const totWeaning   = tot('weaning')
             const totWeaned    = tot('weaned')
-            const avgSows      = records.filter(r=>r.sows>0).length > 0
-              ? records.filter(r=>r.sows>0).reduce((a,r)=>a+(r.sows||0),0) / records.filter(r=>r.sows>0).length
+            const validSowsMonths = records.filter(r=>r.sows>0)
+            const avgSows = validSowsMonths.length > 0
+              ? validSowsMonths.reduce((a,r)=>a+(r.sows||0),0) / validSowsMonths.length
               : 0
+            const dataMonths = records.filter(r=>r.weaning>0&&r.weaned>0&&r.farrowing>0).length
+
+            // 데이터 부족 안내
+            if (dataMonths < 12) {
+              return (
+                <div style={{marginTop:14,background:'#EDE8FB',borderRadius:10,padding:'12px 16px',
+                  display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div>
+                    <div style={{fontSize:10,color:'#5B3FA6',marginBottom:4,fontWeight:600}}>🐷 {year}년 연간 PSY</div>
+                    <div style={{fontSize:11,color:'#7B6BA8'}}>
+                      데이터 수집 중 ({dataMonths}/12개월)
+                    </div>
+                    <div style={{fontSize:10,color:'#9B8FC0',marginTop:2}}>12개월 데이터가 모이면 자동으로 계산돼요</div>
+                  </div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#9B8FC0'}}>집계 중...</div>
+                </div>
+              )
+            }
+
             if (!totFarrowing || !avgSows || !totWeaning) return null
-            // PSY = 모돈회전율 × 복당이유두수
-            // 모돈회전율 = 전체분만복수 / (평균상시모돈수 / 12)
             const turnover = totFarrowing / (avgSows / 12)
             const wpwTotal = totWeaned / totWeaning
             const psy      = (turnover * wpwTotal).toFixed(1)
             return (
-              <div style={{marginTop:14,paddingTop:14,borderTop:'0.5px solid rgba(0,0,0,0.08)',
-                display:'flex',alignItems:'center',justifyContent:'space-between',
-                background:'#EDE8FB',borderRadius:10,padding:'12px 16px',marginTop:14}}>
+              <div style={{marginTop:14,background:'#EDE8FB',borderRadius:10,padding:'12px 16px',
+                display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div>
                   <div style={{fontSize:10,color:'#5B3FA6',marginBottom:4,fontWeight:600}}>🐷 {year}년 연간 PSY</div>
                   <div style={{fontSize:11,color:'#7B6BA8',lineHeight:1.6}}>
