@@ -32,11 +32,18 @@ function DetailTable({ data }) {
 
   // 도체중 개선 계산 (코드로 정확하게)
   const TARGET_CW = 80
-  const avgPrice = data.filter(d=>d.price>0).length > 0
-    ? Math.round(data.filter(d=>d.price>0).reduce((a,d)=>a+d.price,0)/data.filter(d=>d.price>0).length)
-    : 0
+  // 평균단가: price_kg 있으면 사용, 없으면 개체별 금액÷도체중 평균
+  const priceKgData = data.filter(d=>d.price_kg>0)
+  const avgPricePerKg = priceKgData.length > 0
+    ? Math.round(priceKgData.reduce((a,d)=>a+Number(d.price_kg),0)/priceKgData.length)
+    : (() => {
+        const validItems = data.filter(d=>d.price>0&&d.cw>0)
+        return validItems.length > 0
+          ? Math.round(validItems.reduce((a,d)=>a+Number(d.price)/Number(d.cw),0)/validItems.length)
+          : 0
+      })()
   const lightAnimals = data.filter(d=>d.cw < TARGET_CW)
-  const totalGain    = lightAnimals.reduce((a,d)=>a+(TARGET_CW-d.cw)*avgPrice, 0)
+  const totalGain    = lightAnimals.reduce((a,d)=>a+(TARGET_CW-d.cw)*avgPricePerKg, 0)
   const avgCw        = (data.reduce((a,d)=>a+d.cw,0)/data.length).toFixed(1)
   const avgBf        = (data.reduce((a,d)=>a+d.bf,0)/data.length).toFixed(1)
   const grades       = {"1+":0,"1":0,"2":0,"E":0}
@@ -114,7 +121,7 @@ function DetailTable({ data }) {
       )}
 
       {/* 도체중 개선 분석 카드 */}
-      {avgPrice > 0 && (
+      {avgPricePerKg > 0 && (
         <div style={{marginTop:10,background:'white',border:'0.5px solid rgba(0,0,0,0.08)',borderRadius:10,padding:14}}>
           <div style={{fontSize:12,fontWeight:600,color:'#1a1a18',marginBottom:10}}>⚖️ 도체중 개선 예상 수익</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
@@ -132,7 +139,7 @@ function DetailTable({ data }) {
             </div>
           </div>
           <div style={{fontSize:10,color:'#aaa',marginBottom:10}}>
-            * 80kg 미만 {lightAnimals.length}두 × 부족 도체중 × 평균단가 {avgPrice.toLocaleString()}원/kg 기준
+            * 80kg 미만 {lightAnimals.length}두 × 부족 도체중 × 평균단가 {avgPricePerKg.toLocaleString()}원/kg 기준
           </div>
 
           {/* AI 코멘트 */}
