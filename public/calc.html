@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>감정평가 계산기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222535;
+    --border: #2e3248;
+    --accent: #4f7cff;
+    --accent2: #7c5cfc;
+    --gold: #f5c842;
+    --green: #3ecf8e;
+    --red: #ff6b6b;
+    --text: #e8eaf0;
+    --text2: #8b90a7;
+    --text3: #555a73;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1d27 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo-badge {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  header span {
+    font-size: 12px;
+    color: var(--text2);
+    margin-left: 4px;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 24px 32px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .tab-btn {
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text2);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: -0.3px;
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    min-height: calc(100vh - 120px);
+  }
+
+  .left-panel {
+    padding: 24px 32px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .right-panel {
+    padding: 24px;
+    background: var(--surface);
+    position: sticky;
+    top: 61px;
+    height: calc(100vh - 61px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .add-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .add-btn:active { transform: translateY(0); }
+
+  /* ITEM CARDS */
+  .item-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .item-card:hover { border-color: var(--accent); }
+
+  .item-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .item-num {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .item-badge {
+    width: 24px; height: 24px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .item-label-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif;
+    width: 160px;
+  }
+  .item-label-input:focus { outline: none; border-color: var(--accent); }
+
+  .delete-btn {
+    width: 28px; height: 28px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .delete-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* FORM GRID */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.full { grid-template-columns: 1fr; }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .field input, .field select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .field select option { background: var(--surface2); }
+
+  .field input[readonly] {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* ITEM RESULT */
+  .item-result {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .item-result-label {
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .item-result-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  /* RIGHT PANEL - SUMMARY */
+  .summary-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .summary-row-name {
+    color: var(--text2);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .summary-row-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .total-box {
+    background: linear-gradient(135deg, rgba(79,124,255,0.15), rgba(124,92,252,0.15));
+    border: 1px solid rgba(79,124,255,0.4);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .total-label {
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .total-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: -1px;
+  }
+
+  .total-unit {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+
+  .reset-btn {
+    padding: 10px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .reset-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .copy-btn {
+    padding: 10px;
+    background: linear-gradient(135deg, var(--green), #2ba872);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .copy-btn:hover { opacity: 0.85; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text3);
+    font-size: 13px;
+  }
+
+  /* REGION HELPER */
+  .region-hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  .region-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    min-height: 38px;
+  }
+
+  .region-group-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--gold);
+  }
+
+  .region-name-text {
+    color: var(--text2);
+    font-size: 12px;
+  }
+
+  /* NOTICE */
+  .notice {
+    padding: 10px 14px;
+    background: rgba(245,200,66,0.08);
+    border: 1px solid rgba(245,200,66,0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .right-panel { position: static; height: auto; }
+    .left-panel { padding: 16px; }
+    .tabs { padding: 16px 16px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">🏢</div>
+  <div>
+    <h1>감정평가 계산기 <span>공동담보 다건 계산</span></h1>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('land')">🌍 토지 감정평가</button>
+  <button class="tab-btn" onclick="switchTab('building')">🏗️ 건물 감정평가</button>
+</div>
+
+<div class="main">
+  <div class="left-panel">
+
+    <!-- LAND TAB -->
+    <div id="tab-land">
+      <div class="section-header">
+        <span class="section-title">토지 목록</span>
+        <button class="add-btn" onclick="addLandItem()">＋ 토지 추가</button>
+      </div>
+      <div id="land-list"></div>
+    </div>
+
+    <!-- BUILDING TAB -->
+    <div id="tab-building" style="display:none">
+      <div class="section-header">
+        <span class="section-title">건물 목록</span>
+        <button class="add-btn" onclick="addBuildingItem()">＋ 건물 추가</button>
+      </div>
+      <div id="building-list"></div>
+    </div>
+
+  </div>
+
+  <div class="right-panel">
+    <div class="summary-title">📋 공동담보 합산</div>
+
+    <div class="total-box">
+      <div class="total-label">토지 + 건물 합산 감정가</div>
+      <div class="total-value" id="grand-total">0</div>
+      <div class="total-unit">원</div>
+    </div>
+
+    <div>
+      <div class="summary-title" style="margin-bottom:8px">토지 소계</div>
+      <div class="summary-list" id="land-summary">
+        <div class="empty-state">토지를 추가해주세요</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <span style="font-size:12px;color:var(--text2)">소계: </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-left:6px" id="land-subtotal">0원</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="summary-title" style="margin-bottom:8px">건물 소계</div>
+      <div class="summary-list" id="building-summary">
+        <div class="empty-state">건물을 추가해주세요</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <span style="font-size:12px;color:var(--text2)">소계: </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-left:6px" id="building-subtotal">0원</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="reset-btn" onclick="resetAll()">🗑 전체 초기화</button>
+      <button class="copy-btn" onclick="copyResult()">📋 결과 복사</button>
+    </div>
+
+    <div class="notice">
+      💡 공시지가는 국토교통부 부동산공시가격알리미에서 확인하세요.<br>
+      신축건물 기준가액: 축사 40만 / 공장·창고 60만 / 일반건물 80만 (㎡당)
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────
+const LAND_INDEX = {
+  '대지, 잡종지': { 1: 1.35, 2: 1.30, 3: 1.25, 4: 1.20, 5: 1.15 },
+  '전(밭), 답(논), 과수원': { 1: 1.30, 2: 1.25, 3: 1.20, 4: 1.15, 5: 1.10 },
+  '임야': { 1: 1.25, 2: 1.20, 3: 1.15, 4: 1.10, 5: 1.05 },
+  '하천부지, 기타토지': { 1: 1.20, 2: 1.15, 3: 1.10, 4: 1.05, 5: 1.00 }
+};
+
+const REGION_MAP = {
+  1: ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '울산광역시', '대전광역시'],
+  2: ['수원', '안양', '부천', '성남', '의정부', '광명', '김해', '양산', '창원', '과천', '춘천', '청주', '전주', '제주', '영종동', '용유동'],
+  3: ['안산', '구리', '군포', '의왕', '하남', '시흥', '포항', '경주', '경산', '구미', '거제', '마산', '진해', '진주',
+      '동두천', '평택', '오산', '남양주', '양주', '파주', '용인', '김포', '광주', '이천', '안성', '포천', '화성', '고양',
+      '원주', '강릉', '동해', '속초', '태백', '삼척', '충주', '제천',
+      '천안', '공주', '아산', '보령', '계룡', '논산', '서산',
+      '군산', '익산', '남원', '정읍', '김제',
+      '여수', '순천', '나주', '목포', '광양',
+      '김천', '안동', '영주', '영천', '상주', '문경',
+      '통영', '사천', '밀양', '서귀포', '가락동', '녹산동'],
+  4: ['여주', '팽성', '장호원', '진접', '수동면', '화도읍', '별내면', '반월동', '수지읍', '진건읍', '초월읍', '고촌면', '소홀면', '검단동', '조리읍',
+      '왜관읍', '하양읍', '동명면', '의성읍', '영덕읍', '금호읍', '화양읍', '청도읍', '고령읍', '성주읍', '선산읍', '문경읍', '예천읍',
+      '홍천읍', '횡성읍', '화천읍', '영월읍', '평창읍', '주문진읍', '도계읍', '근덕면',
+      '보은읍', '옥천읍', '영동읍', '증평읍', '음성읍', '단양읍',
+      '금산읍', '조치원읍', '강경읍', '연무읍', '성환읍', '당진읍', '부여읍', '장항읍', '홍성읍', '광천읍', '예산읍',
+      '부안읍', '조촌동', '미성동',
+      '향동', '담양읍', '보성읍', '벌교읍', '장흥읍', '강진읍', '해남읍', '영암읍', '무안읍', '영광읍', '장성읍', '진도읍',
+      '의령읍', '창녕읍', '삼랑진읍', '신현읍', '고성읍', '하동읍', '거창읍', '합천읍'],
+};
+
+function getRegionGroup(keyword) {
+  if (!keyword || keyword.trim().length < 2) return null;
+  const k = keyword.trim();
+  // 1군: 광역시/특별시는 정확히 시 이름이 포함될 때만
+  for (let g = 1; g <= 4; g++) {
+    if (REGION_MAP[g].some(r => {
+      // 입력이 DB 항목을 포함하거나, DB 항목이 입력을 포함 (단 2글자 이상 매칭)
+      const matched = r.includes(k) || k.includes(r);
+      if (!matched) return false;
+      // 단순 조사(시,군,구,읍,동,면) 제거 후 2글자 이상인지 확인
+      const base = k.replace(/[시군구읍동면]$/, '');
+      return base.length >= 2;
+    })) return g;
+  }
+  return 5;
+}
+
+const STRUCT_INDEX = {
+  '철골(철골철근)콘크리트조, 통나무조': 1.2,
+  '철근콘크리트조, 철골조, 석조, PC조, 목구조, 스틸하우스조': 1.0,
+  '연와조, 보강 콘크리트조, 황토조': 0.9,
+  '시멘트벽돌조': 0.8,
+  '목조': 0.7,
+  '시멘트블럭조': 0.6,
+  '경량철골조, 조립식패널조': 0.5,
+  '석회 및 흙벽돌조, 돌담 및 토담조, 철파이프조': 0.4,
+};
+
+const ROOF_INDEX = {
+  '슬래브(스라브)': 1.0,
+  '토기와, 시멘트기와, 유리, 샌드위치판넬': 0.95,
+  '슬레이트(스레이트)': 0.85,
+  '함석, 자연석, 갈바, 강판, 칼라시트': 0.75,
+  '썬라이트, 그외 기타': 0.5,
+};
+
+const USE_INDEX = {
+  '식품위생시설, 숙박시설 (유흥접객, 관광호텔 등)': 1.35,
+  '판매시설 (백화점, 대형마트, 쇼핑몰)': 1.35,
+  '사무실 (오피스텔, 예식장, 장례식장)': 1.25,
+  '점포, 시장 (단일점포, 상가, 슈퍼마켓)': 1.25,
+  '위생 및 숙박시설 (이용원, 모텔, 주유소 등)': 1.25,
+  '주거시설 (아파트, 단독주택, 연립주택)': 1.2,
+  '교육, 종교, 문화시설 (학교, 학원, 교회)': 1.0,
+  '체육, 의료시설 (체육관, 병원, 의원)': 1.0,
+  '공장 및 창고시설 (공장, 창고, 세차장)': 0.9,
+  '농업, 생산시설 (축사, 관리사, 농막)': 0.8,
+};
+
+const AGE_INDEX = [
+  { label: '0 ~ 4년', val: 1.0 },
+  { label: '5 ~ 9년', val: 0.9 },
+  { label: '10 ~ 14년', val: 0.8 },
+  { label: '15 ~ 19년', val: 0.7 },
+  { label: '20년 이상', val: 0.6 },
+];
+
+const BASE_PRICE = {
+  '일반건물 (상가, 주택, 사무실 등)': 800000,
+  '공장 및 창고': 600000,
+  '축사': 400000,
+};
+
+// ─── STATE ───────────────────────────────────────────────
+let landItems = [];
+let buildingItems = [];
+let currentTab = 'land';
+let idCounter = 0;
+
+// ─── STORAGE ───────────────────────────────────────────────
+function saveData() {
+  try {
+    localStorage.setItem('appraisal_land', JSON.stringify(landItems));
+    localStorage.setItem('appraisal_building', JSON.stringify(buildingItems));
+    localStorage.setItem('appraisal_counter', String(idCounter));
+  } catch(e) {}
+}
+
+function loadData() {
+  try {
+    const land = localStorage.getItem('appraisal_land');
+    const building = localStorage.getItem('appraisal_building');
+    const counter = localStorage.getItem('appraisal_counter');
+    if (land) landItems = JSON.parse(land);
+    if (building) buildingItems = JSON.parse(building);
+    if (counter) idCounter = parseInt(counter);
+  } catch(e) {}
+}
+
+// ─── TAB ───────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-land').style.display = tab === 'land' ? 'block' : 'none';
+  document.getElementById('tab-building').style.display = tab === 'building' ? 'block' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && tab === 'land') || (i === 1 && tab === 'building'));
+  });
+}
+
+// ─── LAND ───────────────────────────────────────────────
+function addLandItem() {
+  const id = ++idCounter;
+  landItems.push({ id, label: `토지 ${landItems.length + 1}`, region: '', group: null, category: '', officialPrice: '', area: '', result: 0 });
+  renderLandList();
+  saveData();
+}
+
+function removeLandItem(id) {
+  landItems = landItems.filter(i => i.id !== id);
+  renderLandList();
+  updateSummary();
+  saveData();
+}
+
+function renderLandList() {
+  const container = document.getElementById('land-list');
+  if (landItems.length === 0) {
+    container.innerHTML = '<div class="empty-state">＋ 토지 추가 버튼을 눌러 시작하세요</div>';
+    updateSummary();
+    return;
+  }
+  container.innerHTML = landItems.map((item, idx) => `
+    <div class="item-card" id="land-card-${item.id}">
+      <div class="item-card-header">
+        <div class="item-num">
+          <div class="item-badge">${idx + 1}</div>
+          <input class="item-label-input" value="${item.label}" onchange="landItems[${idx}].label=this.value; updateSummary(); saveData()" placeholder="항목명">
+        </div>
+        <button class="delete-btn" onclick="removeLandItem(${item.id})">✕</button>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field">
+          <label>지역 검색</label>
+          <input type="text" placeholder="예: 서울, 수원, 안산" value="${item.region}"
+            oninput="landRegionInput(${idx}, this.value)">
+          <div class="region-hint">시·구·읍·동 단위로 입력</div>
+        </div>
+        <div class="field">
+          <label>지역군</label>
+          <div class="region-display">
+            ${item.group
+              ? `<span class="region-group-badge">${item.group}군</span><span class="region-name-text">${item.region}</span>`
+              : `<span style="color:var(--text3);font-size:12px">지역 입력 후 자동 표시</span>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field">
+          <label>지목</label>
+          <select onchange="landItems[${idx}].category=this.value; calcLand(${idx})">
+            <option value="">선택</option>
+            ${Object.keys(LAND_INDEX).map(k => `<option value="${k}" ${item.category===k?'selected':''}>${k}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>적용지수</label>
+          <input type="text" readonly value="${item.group && item.category ? LAND_INDEX[item.category]?.[item.group] ?? '-' : '-'}">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>공시지가 (원/㎡)</label>
+          <input type="number" placeholder="예: 500000" value="${item.officialPrice}"
+            oninput="landItems[${idx}].officialPrice=this.value; calcLand(${idx})">
+        </div>
+        <div class="field">
+          <label>면적 (㎡)</label>
+          <input type="number" placeholder="예: 100" value="${item.area}"
+            oninput="landItems[${idx}].area=this.value; calcLand(${idx})">
+        </div>
+      </div>
+
+      <div class="item-result">
+        <span class="item-result-label">토지 감정가</span>
+        <span class="item-result-value">${fmt(item.result)}원</span>
+      </div>
+    </div>
+  `).join('');
+  updateSummary();
+}
+
+function landRegionInput(idx, val) {
+  landItems[idx].region = val;
+  const g = getRegionGroup(val);
+  landItems[idx].group = g;
+  calcLand(idx);
+  // 지역군 표시만 부분 업데이트 (전체 재렌더링 X → 키보드 내려가는 문제 방지)
+  const item = landItems[idx];
+  const card = document.getElementById(`land-card-${item.id}`);
+  if (card) {
+    const regionDisplay = card.querySelector('.region-display');
+    if (regionDisplay) {
+      regionDisplay.innerHTML = item.group
+        ? `<span class="region-group-badge">${item.group}군</span><span class="region-name-text">${item.region}</span>`
+        : `<span style="color:var(--text3);font-size:12px">지역 입력 후 자동 표시</span>`;
+    }
+    const readonlyInputs = card.querySelectorAll('input[readonly]');
+    if (readonlyInputs[0]) {
+      readonlyInputs[0].value = item.group && item.category ? (LAND_INDEX[item.category]?.[item.group] ?? '-') : '-';
+    }
+  }
+  saveData();
+}
+
+function calcLand(idx) {
+  const item = landItems[idx];
+  if (item.group && item.category && item.officialPrice && item.area) {
+    const rate = LAND_INDEX[item.category]?.[item.group] ?? 0;
+    item.result = Math.round(rate * parseFloat(item.officialPrice) * parseFloat(item.area));
+  } else {
+    item.result = 0;
+  }
+  updateSummary();
+  saveData();
+  // update result display
+  const card = document.getElementById(`land-card-${item.id}`);
+  if (card) {
+    const resVal = card.querySelector('.item-result-value');
+    if (resVal) resVal.textContent = fmt(item.result) + '원';
+    // update rate display
+    const readonlyInputs = card.querySelectorAll('input[readonly]');
+    if (readonlyInputs[0]) {
+      readonlyInputs[0].value = item.group && item.category ? (LAND_INDEX[item.category]?.[item.group] ?? '-') : '-';
+    }
+  }
+}
+
+// ─── BUILDING ───────────────────────────────────────────────
+function addBuildingItem() {
+  const id = ++idCounter;
+  buildingItems.push({
+    id, label: `건물 ${buildingItems.length + 1}`,
+    baseType: '', struct: '', roof: '', use: '', age: '', area: '', result: 0
+  });
+  renderBuildingList();
+  saveData();
+}
+
+function removeBuildingItem(id) {
+  buildingItems = buildingItems.filter(i => i.id !== id);
+  renderBuildingList();
+  updateSummary();
+  saveData();
+}
+
+function renderBuildingList() {
+  const container = document.getElementById('building-list');
+  if (buildingItems.length === 0) {
+    container.innerHTML = '<div class="empty-state">＋ 건물 추가 버튼을 눌러 시작하세요</div>';
+    updateSummary();
+    return;
+  }
+  container.innerHTML = buildingItems.map((item, idx) => `
+    <div class="item-card" id="building-card-${item.id}">
+      <div class="item-card-header">
+        <div class="item-num">
+          <div class="item-badge" style="background:linear-gradient(135deg,#7c5cfc,#c05cfc)">${idx + 1}</div>
+          <input class="item-label-input" value="${item.label}" onchange="buildingItems[${idx}].label=this.value; updateSummary(); saveData()" placeholder="항목명">
+        </div>
+        <button class="delete-btn" onclick="removeBuildingItem(${item.id})">✕</button>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field" style="grid-column:1/-1">
+          <label>기준가액 유형</label>
+          <select onchange="buildingItems[${idx}].baseType=this.value; calcBuilding(${idx})">
+            <option value="">선택</option>
+            ${Object.keys(BASE_PRICE).map(k => `<option value="${k}" ${item.baseType===k?'selected':''}>${k} — ${fmt(BASE_PRICE[k])}원/㎡</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field" style="grid-column:1/-1">
+          <label>구조 (구조지수)</label>
+          <select onchange="buildingItems[${idx}].struct=this.value; calcBuilding(${idx})">
+            <option value="">선택</option>
+            ${Object.entries(STRUCT_INDEX).map(([k,v]) => `<option value="${k}" ${item.struct===k?'selected':''}>${k} [${v}]</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field">
+          <label>지붕 (지붕지수)</label>
+          <select onchange="buildingItems[${idx}].roof=this.value; calcBuilding(${idx})">
+            <option value="">선택</option>
+            ${Object.entries(ROOF_INDEX).map(([k,v]) => `<option value="${k}" ${item.roof===k?'selected':''}>${k} [${v}]</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>경과년수 (잔가지수)</label>
+          <select onchange="buildingItems[${idx}].age=this.value; calcBuilding(${idx})">
+            <option value="">선택</option>
+            ${AGE_INDEX.map(a => `<option value="${a.val}" ${item.age==a.val?'selected':''}>${a.label} [${a.val}]</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field" style="grid-column:1/-1">
+          <label>용도 (용도지수)</label>
+          <select onchange="buildingItems[${idx}].use=this.value; calcBuilding(${idx})">
+            <option value="">선택</option>
+            ${Object.entries(USE_INDEX).map(([k,v]) => `<option value="${k}" ${item.use===k?'selected':''}>${k} [${v}]</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>면적 (㎡)</label>
+          <input type="number" placeholder="예: 150" value="${item.area}"
+            oninput="buildingItems[${idx}].area=this.value; calcBuilding(${idx})">
+        </div>
+        <div class="field">
+          <label>적용 지수 합산</label>
+          <input type="text" readonly value="${getBuildingRate(item) ?? '-'}">
+        </div>
+      </div>
+
+      <div class="item-result" style="border-color:var(--accent2)">
+        <span class="item-result-label">건물 감정가</span>
+        <span class="item-result-value" style="color:var(--accent2)">${fmt(item.result)}원</span>
+      </div>
+    </div>
+  `).join('');
+  updateSummary();
+}
+
+function getBuildingRate(item) {
+  if (!item.struct || !item.roof || !item.use || !item.age) return null;
+  return (STRUCT_INDEX[item.struct] * ROOF_INDEX[item.roof] * USE_INDEX[item.use] * parseFloat(item.age)).toFixed(4);
+}
+
+function calcBuilding(idx) {
+  const item = buildingItems[idx];
+  const rate = getBuildingRate(item);
+  if (rate && item.baseType && item.area) {
+    item.result = Math.round(BASE_PRICE[item.baseType] * parseFloat(rate) * parseFloat(item.area));
+  } else {
+    item.result = 0;
+  }
+  updateSummary();
+  saveData();
+  const card = document.getElementById(`building-card-${item.id}`);
+  if (card) {
+    const resVal = card.querySelector('.item-result-value');
+    if (resVal) resVal.textContent = fmt(item.result) + '원';
+    const readonlyInputs = card.querySelectorAll('input[readonly]');
+    if (readonlyInputs[0]) readonlyInputs[0].value = getBuildingRate(item) ?? '-';
+  }
+}
+
+// ─── SUMMARY ───────────────────────────────────────────────
+function updateSummary() {
+  const landTotal = landItems.reduce((s, i) => s + i.result, 0);
+  const buildingTotal = buildingItems.reduce((s, i) => s + i.result, 0);
+  const grand = landTotal + buildingTotal;
+
+  document.getElementById('grand-total').textContent = fmt(grand);
+  document.getElementById('land-subtotal').textContent = fmt(landTotal) + '원';
+  document.getElementById('building-subtotal').textContent = fmt(buildingTotal) + '원';
+
+  // land summary
+  const ls = document.getElementById('land-summary');
+  if (landItems.length === 0) {
+    ls.innerHTML = '<div class="empty-state">토지를 추가해주세요</div>';
+  } else {
+    ls.innerHTML = landItems.map(i => `
+      <div class="summary-row">
+        <span class="summary-row-name">${i.label}</span>
+        <span class="summary-row-val">${fmt(i.result)}원</span>
+      </div>
+    `).join('');
+  }
+
+  // building summary
+  const bs = document.getElementById('building-summary');
+  if (buildingItems.length === 0) {
+    bs.innerHTML = '<div class="empty-state">건물을 추가해주세요</div>';
+  } else {
+    bs.innerHTML = buildingItems.map(i => `
+      <div class="summary-row">
+        <span class="summary-row-name">${i.label}</span>
+        <span class="summary-row-val">${fmt(i.result)}원</span>
+      </div>
+    `).join('');
+  }
+}
+
+// ─── UTILS ───────────────────────────────────────────────
+function fmt(n) {
+  return Number(n).toLocaleString('ko-KR');
+}
+
+function resetAll() {
+  if (!confirm('전체 초기화할까요?')) return;
+  landItems = [];
+  buildingItems = [];
+  localStorage.removeItem('appraisal_land');
+  localStorage.removeItem('appraisal_building');
+  localStorage.removeItem('appraisal_counter');
+  idCounter = 0;
+  renderLandList();
+  renderBuildingList();
+  updateSummary();
+}
+
+function copyResult() {
+  const landTotal = landItems.reduce((s, i) => s + i.result, 0);
+  const buildingTotal = buildingItems.reduce((s, i) => s + i.result, 0);
+  const grand = landTotal + buildingTotal;
+
+  let text = '=== 감정평가 결과 ===\n\n';
+  if (landItems.length > 0) {
+    text += '[토지]\n';
+    landItems.forEach(i => text += `  ${i.label}: ${fmt(i.result)}원\n`);
+    text += `  소계: ${fmt(landTotal)}원\n\n`;
+  }
+  if (buildingItems.length > 0) {
+    text += '[건물]\n';
+    buildingItems.forEach(i => text += `  ${i.label}: ${fmt(i.result)}원\n`);
+    text += `  소계: ${fmt(buildingTotal)}원\n\n`;
+  }
+  text += `[합산 감정가]: ${fmt(grand)}원`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ 복사됨!';
+    setTimeout(() => btn.textContent = '📋 결과 복사', 1500);
+  });
+}
+
+// ─── INIT ───────────────────────────────────────────────
+loadData();
+renderLandList();
+renderBuildingList();
+updateSummary();
+<footer style="text-align:center;padding:24px;border-top:1px solid #2e3248;margin-top:40px;color:#555a73;font-size:13px;">
+  해피드(HaFeed) · 영업담당 <strong style="color:#8b90a7">박현진</strong> · 010-3338-5512
+</footer>
+</script>
+</body>
+</html>
