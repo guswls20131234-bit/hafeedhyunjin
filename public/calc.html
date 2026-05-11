@@ -447,77 +447,20 @@
     .tabs { padding: 16px 16px 0; }
   }
 
-  /* 영업사원/의뢰인 */
-  .case-bar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 10px 32px;
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .case-bar label { font-size: 12px; color: var(--text2); white-space: nowrap; }
-  .case-bar input {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'Noto Sans KR', sans-serif;
-    font-size: 13px;
-    padding: 5px 10px;
-    width: 180px;
-  }
-  .case-bar input:focus { outline: none; border-color: var(--accent); }
-
-  /* 드래그 핸들 */
-  .drag-handle {
-    position: absolute;
-    top: 12px; left: 12px;
-    color: var(--text3);
-    cursor: grab;
-    font-size: 18px;
-    padding: 4px;
-    user-select: none;
-  }
-  .drag-handle:active { cursor: grabbing; }
-  .item-card.drag-over { border-color: var(--accent); background: #1a2035; }
-  .item-card { position: relative; }
-
-  /* 단위변환 버튼 */
-  .unit-row { display: flex; gap: 6px; align-items: center; }
-  .unit-toggle {
-    background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text2); border-radius: 6px;
-    padding: 4px 8px; font-size: 11px; font-weight: 600;
-    font-family: 'Noto Sans KR', sans-serif;
-    cursor: pointer; white-space: nowrap; flex-shrink: 0;
-    transition: all 0.2s;
-  }
-  .unit-toggle:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* 세트 저장 버튼 */
-  .save-set-btn { background: rgba(245,200,66,0.1); color: var(--gold); }
-  .save-set-btn:hover { background: rgba(245,200,66,0.2); }
-  .load-set-btn { background: rgba(79,124,255,0.1); color: var(--accent); }
-  .load-set-btn:hover { background: rgba(79,124,255,0.2); }
-
-  /* 세트 목록 */
-  .set-item {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 12px;
-    display: flex; align-items: center; justify-content: space-between;
-    cursor: pointer; transition: border-color 0.2s;
-  }
-  .set-item:hover { border-color: var(--accent); }
-  .set-item-name { font-size: 13px; }
-  .set-item-meta { font-size: 11px; color: var(--text3); }
-  .set-del-btn {
-    background: none; border: none; color: var(--text3);
-    cursor: pointer; font-size: 14px; padding: 2px 6px;
-  }
-  .set-del-btn:hover { color: var(--red); }
-
+  .case-bar { background:var(--surface); border-bottom:1px solid var(--border); padding:10px 32px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .case-bar label { font-size:12px; color:var(--text2); white-space:nowrap; }
+  .case-bar input { background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:13px; padding:5px 10px; width:180px; }
+  .case-bar input:focus { outline:none; border-color:var(--accent); }
+  .drag-handle { position:absolute; top:14px; left:10px; color:var(--text3); cursor:grab; font-size:18px; user-select:none; }
+  .item-card { position:relative; }
+  .item-card.drag-over { border-color:var(--accent); background:#1a2035; }
+  .unit-toggle { background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; font-family:'Noto Sans KR',sans-serif; cursor:pointer; white-space:nowrap; }
+  .unit-toggle:hover { border-color:var(--accent); color:var(--accent); }
+  .filter-btn { border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; font-family:'Noto Sans KR',sans-serif; }
+  .set-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-bottom:6px; }
+  .set-item:hover { border-color:var(--accent); }
+  .set-del-btn { background:none; border:none; color:var(--text3); cursor:pointer; font-size:14px; padding:2px 6px; }
+  .set-del-btn:hover { color:var(--red); }
 </style>
 </head>
 <body>
@@ -529,14 +472,7 @@
   </div>
 </header>
 
-
-<div class="case-bar">
-  <label>영업사원</label>
-  <input type="text" id="case-number" placeholder="예: 박현진" oninput="saveCaseInfo()">
-  <label>거래처(농장)</label>
-  <input type="text" id="client-name" placeholder="예: 선경농장" oninput="saveCaseInfo()">
-</div>
-
+<div class="case-bar"><label>영업사원</label><input type="text" id="inp-sales" placeholder="예: 박현진" oninput="saveMeta()"><label>거래처(농장)</label><input type="text" id="inp-farm" placeholder="예: 선경농장" oninput="saveMeta()"></div>
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('land')">🌍 토지 감정평가</button>
   <button class="tab-btn" onclick="switchTab('building')">🏗️ 건물 감정평가</button>
@@ -605,17 +541,7 @@
       <button class="copy-btn" onclick="copyResult()">📋 결과 복사</button>
     </div>
 
-    
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <button class="save-set-btn reset-btn" onclick="saveSet()">💾 세트 저장</button>
-      <button class="load-set-btn reset-btn" onclick="toggleSetList()">📂 불러오기</button>
-    </div>
-    <div id="set-list-panel" style="display:none;margin-top:12px">
-      <div class="summary-title" style="margin-bottom:8px">저장된 세트</div>
-      <div id="set-list" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
-
-    <div class="notice">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><button class="reset-btn" style="background:rgba(245,200,66,0.1);color:var(--gold)" onclick="saveSet()">💾 세트 저장</button><button class="reset-btn" style="background:rgba(79,124,255,0.1);color:var(--accent)" onclick="openSetList()">📂 불러오기</button></div><div id="set-panel" style="display:none;margin-bottom:12px"><div id="set-filter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div><div id="set-list"></div></div><div class="notice">
       💡 공시지가는 국토교통부 부동산공시가격알리미에서 확인하세요.<br>
       신축건물 기준가액: 축사 40만 / 공장·창고 60만 / 일반건물 80만 (㎡당)
     </div>
@@ -623,153 +549,6 @@
 </div>
 
 <script>
-
-// ─── 영업사원/의뢰인 ───────────────────────────────────────
-function saveCaseInfo() {
-  localStorage.setItem('appraisal_case', document.getElementById('case-number').value);
-  localStorage.setItem('appraisal_client', document.getElementById('client-name').value);
-}
-
-// ─── 묶음 세트 ─────────────────────────────────────────────
-function saveSet() {
-  const caseNum = document.getElementById('case-number').value.trim();
-  const clientNm = document.getElementById('client-name').value.trim();
-  const name = prompt('세트 이름:', caseNum || '공동담보 세트');
-  if (!name) return;
-  const sets = JSON.parse(localStorage.getItem('appraisal_sets') || '[]');
-  const landTotal = landItems.reduce((s,i)=>s+i.result,0);
-  const buildingTotal = buildingItems.reduce((s,i)=>s+i.result,0);
-  sets.push({
-    id: Date.now(), name, caseNum, clientNm,
-    landItems: JSON.parse(JSON.stringify(landItems)),
-    buildingItems: JSON.parse(JSON.stringify(buildingItems)),
-    total: landTotal + buildingTotal,
-    savedAt: new Date().toLocaleDateString('ko-KR')
-  });
-  localStorage.setItem('appraisal_sets', JSON.stringify(sets));
-  alert('저장됐어요! 📁');
-  renderSetList('');
-}
-
-function loadSet(id) {
-  const sets = JSON.parse(localStorage.getItem('appraisal_sets') || '[]');
-  const set = sets.find(s => s.id === id);
-  if (!set) return;
-  if (!confirm('"' + set.name + '" 세트를 불러올까요?')) return;
-  landItems = set.landItems || [];
-  buildingItems = set.buildingItems || [];
-  document.getElementById('case-number').value = set.caseNum || '';
-  document.getElementById('client-name').value = set.clientNm || '';
-  saveCaseInfo(); saveData();
-  renderLandList(); renderBuildingList(); updateSummary();
-}
-
-function deleteSet(id) {
-  let sets = JSON.parse(localStorage.getItem('appraisal_sets') || '[]');
-  sets = sets.filter(s => s.id !== id);
-  localStorage.setItem('appraisal_sets', JSON.stringify(sets));
-  renderSetList('');
-}
-
-function toggleSetList() {
-  const panel = document.getElementById('set-list-panel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  if (panel.style.display === 'block') renderSetList('');
-}
-
-function renderSetList(filterSales) {
-  const sets = JSON.parse(localStorage.getItem('appraisal_sets') || '[]');
-  const container = document.getElementById('set-list');
-  
-  // 영업사원 목록 추출
-  const salesPeople = [...new Set(sets.map(s=>s.caseNum).filter(Boolean))];
-  
-  // 필터 UI
-  let filterHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
-  filterHtml += '<button onclick="renderSetList('')" style="' + 
-    'background:' + (!filterSales ? 'var(--accent)' : 'var(--surface2)') + ';' +
-    'color:' + (!filterSales ? 'white' : 'var(--text2)') + ';' +
-    'border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">전체</button>';
-  salesPeople.forEach(sp => {
-    const active = filterSales === sp;
-    filterHtml += '<button onclick="renderSetList('' + sp + '')" style="' +
-      'background:' + (active ? 'var(--accent)' : 'var(--surface2)') + ';' +
-      'color:' + (active ? 'white' : 'var(--text2)') + ';' +
-      'border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">' + sp + '</button>';
-  });
-  filterHtml += '</div>';
-  
-  const filtered = filterSales ? sets.filter(s=>s.caseNum===filterSales) : sets;
-  
-  if (!sets.length) { 
-    container.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">저장된 세트가 없습니다</div>'; 
-    return; 
-  }
-  
-  const listHtml = filtered.length === 0 
-    ? '<div style="font-size:12px;color:var(--text3);padding:8px">해당 영업사원의 세트가 없습니다</div>'
-    : filtered.map(s =>
-        '<div class="set-item" onclick="loadSet(' + s.id + ')">' +
-        '<div><div class="set-item-name">' + (s.name||'') + '</div>' +
-        '<div class="set-item-meta">👤 ' + (s.caseNum||'') + ' · 🏡 ' + (s.clientNm||'') + ' · ' + fmt(s.total) + '원 · ' + s.savedAt + '</div></div>' +
-        '<button class="set-del-btn" onclick="event.stopPropagation();deleteSet(' + s.id + ')">✕</button></div>'
-      ).join('');
-  
-  container.innerHTML = filterHtml + listHtml;
-}
-
-// ─── 드래그 앤 드롭 ────────────────────────────────────────
-let dragSrcIdx = null, dragSrcType = null;
-
-function dragStart(e, type, idx) { dragSrcType = type; dragSrcIdx = idx; e.dataTransfer.effectAllowed = 'move'; }
-function dragOver(e, type, idx) {
-  e.preventDefault();
-  document.querySelectorAll('.item-card').forEach(c => c.classList.remove('drag-over'));
-  if (dragSrcType === type && idx !== dragSrcIdx) {
-    const items = type === 'land' ? landItems : buildingItems;
-    document.getElementById((type==='land'?'land-card-':'building-card-') + items[idx].id)?.classList.add('drag-over');
-  }
-}
-function dragDrop(e, type, idx) {
-  e.preventDefault();
-  if (dragSrcType !== type || dragSrcIdx === idx) return;
-  const items = type === 'land' ? landItems : buildingItems;
-  const [moved] = items.splice(dragSrcIdx, 1);
-  items.splice(idx, 0, moved);
-  saveData();
-  if (type === 'land') renderLandList(); else renderBuildingList();
-}
-function dragEnd() { document.querySelectorAll('.item-card').forEach(c=>c.classList.remove('drag-over')); }
-
-// ─── 단위변환 ──────────────────────────────────────────────
-function toggleAreaUnit(type, idx) {
-  const items = type === 'land' ? landItems : buildingItems;
-  const item = items[idx];
-  if (!item.area) return;
-  const val = parseFloat(item.area);
-  if (!item.areaUnit || item.areaUnit === 'm2') {
-    item.area = (val / 3.30579).toFixed(2);
-    item.areaUnit = 'pyeong';
-  } else {
-    item.area = (val * 3.30579).toFixed(2);
-    item.areaUnit = 'm2';
-  }
-  if (type === 'land') { calcLand(idx); renderLandList(); } else { calcBuilding(idx); renderBuildingList(); }
-}
-
-// ─── 공시지가 콤마 ─────────────────────────────────────────
-function formatPriceInput(el, type, idx) {
-  const raw = el.value.replace(/,/g, '');
-  const num = parseFloat(raw);
-  const items = type === 'land' ? landItems : buildingItems;
-  if (!isNaN(num)) {
-    items[idx].officialPrice = raw;
-    el.value = num.toLocaleString('ko-KR');
-    if (type === 'land') calcLand(idx); else calcBuilding(idx);
-  }
-}
-
-
 // ─── DATA ───────────────────────────────────────────────
 const LAND_INDEX = {
   '대지, 잡종지': { 1: 1.35, 2: 1.30, 3: 1.25, 4: 1.20, 5: 1.15 },
@@ -885,10 +664,6 @@ function loadData() {
     if (land) landItems = JSON.parse(land);
     if (building) buildingItems = JSON.parse(building);
     if (counter) idCounter = parseInt(counter);
-    const caseNum = localStorage.getItem('appraisal_case');
-    const clientNm = localStorage.getItem('appraisal_client');
-    if (caseNum) { const el = document.getElementById('case-number'); if(el) el.value = caseNum; }
-    if (clientNm) { const el = document.getElementById('client-name'); if(el) el.value = clientNm; }
   } catch(e) {}
 }
 
@@ -905,7 +680,7 @@ function switchTab(tab) {
 // ─── LAND ───────────────────────────────────────────────
 function addLandItem() {
   const id = ++idCounter;
-  landItems.push({ id, label: `토지 ${landItems.length + 1}`, region: '', group: null, category: '', officialPrice: '', area: '', result: 0 });
+  landItems.push({ id, label: `토지 ${landItems.length + 1}`, region: '', group: null, category: '', officialPrice: '', area: '', areaUnit:'m2', result: 0 });
   renderLandList();
   saveData();
 }
@@ -925,9 +700,8 @@ function renderLandList() {
     return;
   }
   container.innerHTML = landItems.map((item, idx) => `
-    <div class="item-card" id="land-card-${item.id}" draggable="true" ondragstart="dragStart(event,'land',${idx})" ondragover="dragOver(event,'land',${idx})" ondrop="dragDrop(event,'land',${idx})" ondragend="dragEnd()">
-      <div class="drag-handle">⠿</div>
-      <div class="item-card-header" style="padding-left:28px">
+    <div class="item-card" id="land-card-${item.id}" draggable="true" ondragstart="dStart(event,'land',${idx})" ondragover="dOver(event,'land',${idx})" ondrop="dDrop(event,'land',${idx})" ondragend="dEnd()"><div class="drag-handle">⠿</div>
+      <div class="item-card-header" style="padding-left:26px">
         <div class="item-num">
           <div class="item-badge">${idx + 1}</div>
           <input class="item-label-input" value="${item.label}" onchange="landItems[${idx}].label=this.value; updateSummary(); saveData()" placeholder="항목명">
@@ -970,15 +744,11 @@ function renderLandList() {
         <div class="field">
           <label>공시지가 (원/㎡)</label>
           <input type="number" placeholder="예: 500000" value="${item.officialPrice}"
-            oninput="formatPriceInput(this,'land',${idx})">
+            oninput="fmtPrice(this); landItems[${idx}].officialPrice=this.value.replace(/,/g,''); calcLand(${idx})">
         </div>
         <div class="field">
-          <label>면적 (㎡ / 평)</label>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" placeholder="예: 100" value="${item.area}"
-              oninput="landItems[${idx}].area=this.value; landItems[${idx}].areaUnit='m2'; calcLand(${idx})" style="flex:1">
-            <button class="unit-toggle" onclick="toggleAreaUnit('land',${idx})" title="단위변환">${(item.areaUnit||'m2')==='pyeong'?'평→㎡':'㎡→평'}</button>
-          </div>
+          <label>면적</label>
+          <div style="display:flex;gap:6px;align-items:center"><input type="number" placeholder="100" value="${item.area}" oninput="landItems[${idx}].area=this.value; calcLand(${idx})" style="flex:1"><button class="unit-toggle" onclick="convUnit('land',${idx},this)">${item.areaUnit==='py'?'평→㎡':'㎡→평'}</button></div>
         </div>
       </div>
 
@@ -1040,10 +810,7 @@ function calcLand(idx) {
 // ─── BUILDING ───────────────────────────────────────────────
 function addBuildingItem() {
   const id = ++idCounter;
-  buildingItems.push({
-    id, label: `건물 ${buildingItems.length + 1}`,
-    baseType: '', struct: '', roof: '', use: '', age: '', area: '', result: 0
-  });
+  buildingItems.push({ id, label: `건물 ${buildingItems.length + 1}`, baseType: '', struct: '', roof: '', use: '', age: '', area: '', areaUnit:'m2', result: 0 });
   renderBuildingList();
   saveData();
 }
@@ -1063,9 +830,8 @@ function renderBuildingList() {
     return;
   }
   container.innerHTML = buildingItems.map((item, idx) => `
-    <div class="item-card" id="building-card-${item.id}" draggable="true" ondragstart="dragStart(event,'building',${idx})" ondragover="dragOver(event,'building',${idx})" ondrop="dragDrop(event,'building',${idx})" ondragend="dragEnd()">
-      <div class="drag-handle">⠿</div>
-      <div class="item-card-header" style="padding-left:28px">
+    <div class="item-card" id="building-card-${item.id}" draggable="true" ondragstart="dStart(event,'building',${idx})" ondragover="dOver(event,'building',${idx})" ondrop="dDrop(event,'building',${idx})" ondragend="dEnd()"><div class="drag-handle">⠿</div>
+      <div class="item-card-header" style="padding-left:26px">
         <div class="item-num">
           <div class="item-badge" style="background:linear-gradient(135deg,#7c5cfc,#c05cfc)">${idx + 1}</div>
           <input class="item-label-input" value="${item.label}" onchange="buildingItems[${idx}].label=this.value; updateSummary(); saveData()" placeholder="항목명">
@@ -1122,12 +888,8 @@ function renderBuildingList() {
 
       <div class="form-grid">
         <div class="field">
-          <label>면적 (㎡ / 평)</label>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" placeholder="예: 150" value="${item.area}"
-              oninput="buildingItems[${idx}].area=this.value; buildingItems[${idx}].areaUnit='m2'; calcBuilding(${idx})" style="flex:1">
-            <button class="unit-toggle" onclick="toggleAreaUnit('building',${idx})" title="단위변환">${(item.areaUnit||'m2')==='pyeong'?'평→㎡':'㎡→평'}</button>
-          </div>
+          <label>면적</label>
+          <div style="display:flex;gap:6px;align-items:center"><input type="number" placeholder="150" value="${item.area}" oninput="buildingItems[${idx}].area=this.value; calcBuilding(${idx})" style="flex:1"><button class="unit-toggle" onclick="convUnit('building',${idx},this)">${item.areaUnit==='py'?'평→㎡':'㎡→평'}</button></div>
         </div>
         <div class="field">
           <label>적용 지수 합산</label>
@@ -1228,12 +990,7 @@ function copyResult() {
   const buildingTotal = buildingItems.reduce((s, i) => s + i.result, 0);
   const grand = landTotal + buildingTotal;
 
-  const caseNum = document.getElementById('case-number').value;
-  const clientNm = document.getElementById('client-name').value;
-  let text = '=== 감정평가 결과 ===\n';
-  if (caseNum) text += '영업사원: ' + caseNum + '\n';
-  if (clientNm) text += '거래처: ' + clientNm + '\n';
-  text += '\n';
+  let text = '=== 감정평가 결과 ===\n\n';
   if (landItems.length > 0) {
     text += '[토지]\n';
     landItems.forEach(i => text += `  ${i.label}: ${fmt(i.result)}원\n`);
@@ -1253,8 +1010,143 @@ function copyResult() {
   });
 }
 
+
+// ─── META ───────────────────────────────────────────────
+function saveMeta() {
+  localStorage.setItem('meta_sales', document.getElementById('inp-sales').value);
+  localStorage.setItem('meta_farm', document.getElementById('inp-farm').value);
+}
+function loadMeta() {
+  var s=localStorage.getItem('meta_sales'); if(s){ var el=document.getElementById('inp-sales'); if(el) el.value=s; }
+  var f=localStorage.getItem('meta_farm');  if(f){ var el=document.getElementById('inp-farm');  if(el) el.value=f; }
+}
+
+// ─── 공시지가 콤마 ───────────────────────────────────────
+function fmtPrice(el) {
+  var raw = el.value.replace(/,/g,'');
+  var n = parseFloat(raw);
+  if (!isNaN(n)) el.value = n.toLocaleString('ko-KR');
+}
+
+// ─── 단위변환 ───────────────────────────────────────────
+function convUnit(type, idx, btn) {
+  var items = type==='land' ? landItems : buildingItems;
+  var item = items[idx];
+  var val = parseFloat(item.area||0);
+  if (item.areaUnit === 'py') {
+    item.area = (val * 3.30579).toFixed(2);
+    item.areaUnit = 'm2';
+    btn.textContent = '㎡→평';
+  } else {
+    item.area = (val / 3.30579).toFixed(2);
+    item.areaUnit = 'py';
+    btn.textContent = '평→㎡';
+  }
+  // 면적 input 업데이트
+  var card = document.getElementById((type==='land'?'land-card-':'building-card-') + item.id);
+  if (card) { var inp = card.querySelector('input[type=number]'); if(inp) inp.value = item.area; }
+  if (type==='land') calcLand(idx); else calcBuilding(idx);
+}
+
+// ─── 드래그 ─────────────────────────────────────────────
+var _dSrcType=null, _dSrcIdx=null;
+function dStart(e, type, idx) { _dSrcType=type; _dSrcIdx=idx; e.dataTransfer.effectAllowed='move'; }
+function dOver(e, type, idx) {
+  e.preventDefault();
+  document.querySelectorAll('.item-card').forEach(function(c){c.classList.remove('drag-over');});
+  if (_dSrcType===type && idx!==_dSrcIdx) {
+    var items = type==='land'?landItems:buildingItems;
+    var el = document.getElementById((type==='land'?'land-card-':'building-card-')+items[idx].id);
+    if(el) el.classList.add('drag-over');
+  }
+}
+function dDrop(e, type, idx) {
+  e.preventDefault();
+  if (_dSrcType!==type || _dSrcIdx===idx) return;
+  var items = type==='land'?landItems:buildingItems;
+  var moved = items.splice(_dSrcIdx,1)[0];
+  items.splice(idx,0,moved);
+  saveData();
+  if(type==='land') renderLandList(); else renderBuildingList();
+}
+function dEnd() { document.querySelectorAll('.item-card').forEach(function(c){c.classList.remove('drag-over');}); }
+
+// ─── 세트 저장/불러오기 ─────────────────────────────────
+function saveSet() {
+  var sales = document.getElementById('inp-sales').value.trim();
+  var farm  = document.getElementById('inp-farm').value.trim();
+  var name  = prompt('세트 이름:', farm || '공동담보 세트');
+  if (!name) return;
+  var sets = JSON.parse(localStorage.getItem('appraisal_sets')||'[]');
+  sets.push({
+    id: Date.now(), name: name, sales: sales, farm: farm,
+    land: JSON.parse(JSON.stringify(landItems)),
+    building: JSON.parse(JSON.stringify(buildingItems)),
+    total: landItems.reduce(function(s,i){return s+i.result;},0) + buildingItems.reduce(function(s,i){return s+i.result;},0),
+    date: new Date().toLocaleDateString('ko-KR')
+  });
+  localStorage.setItem('appraisal_sets', JSON.stringify(sets));
+  alert('저장됐어요! 📁');
+  renderSetList('');
+}
+
+function loadSet(id) {
+  var sets = JSON.parse(localStorage.getItem('appraisal_sets')||'[]');
+  var set = sets.filter(function(s){return s.id===id;})[0];
+  if (!set) return;
+  if (!confirm('"'+set.name+'" 세트를 불러올까요?')) return;
+  landItems = set.land||[]; buildingItems = set.building||[];
+  document.getElementById('inp-sales').value = set.sales||'';
+  document.getElementById('inp-farm').value  = set.farm||'';
+  saveMeta(); saveData();
+  renderLandList(); renderBuildingList(); updateSummary();
+}
+
+function deleteSet(id) {
+  var sets = JSON.parse(localStorage.getItem('appraisal_sets')||'[]');
+  localStorage.setItem('appraisal_sets', JSON.stringify(sets.filter(function(s){return s.id!==id;})));
+  renderSetList('');
+}
+
+function openSetList() {
+  var p = document.getElementById('set-panel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+  if (p.style.display==='block') renderSetList('');
+}
+
+function renderSetList(filterSales) {
+  var sets = JSON.parse(localStorage.getItem('appraisal_sets')||'[]');
+  var filterDiv = document.getElementById('set-filter');
+  var listDiv   = document.getElementById('set-list');
+
+  // 영업사원 목록
+  var people = [];
+  sets.forEach(function(s){ if(s.sales && people.indexOf(s.sales)<0) people.push(s.sales); });
+
+  // 필터 버튼
+  var fbHtml = '<button class="filter-btn" onclick="renderSetList('')" style="background:'+(filterSales===''?'var(--accent)':'var(--surface2)')+';color:'+(filterSales===''?'white':'var(--text2)')+'">전체</button>';
+  people.forEach(function(p) {
+    var active = filterSales===p;
+    fbHtml += '<button class="filter-btn" onclick="renderSetList(''+p+'')" style="background:'+(active?'var(--accent)':'var(--surface2)')+';color:'+(active?'white':'var(--text2)')+'">'+p+'</button>';
+  });
+  filterDiv.innerHTML = fbHtml;
+
+  // 세트 목록
+  var filtered = filterSales ? sets.filter(function(s){return s.sales===filterSales;}) : sets;
+  if (!sets.length) { listDiv.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">저장된 세트가 없습니다</div>'; return; }
+  if (!filtered.length) { listDiv.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">해당 영업사원의 세트가 없습니다</div>'; return; }
+  listDiv.innerHTML = filtered.map(function(s) {
+    return '<div class="set-item" onclick="loadSet('+s.id+')">' +
+      '<div><div style="font-size:13px">'+s.name+'</div>' +
+      '<div style="font-size:11px;color:var(--text3)">👤 '+(s.sales||'')+'  🏡 '+(s.farm||'')+' · '+fmt(s.total)+'원 · '+s.date+'</div></div>' +
+      '<button class="set-del-btn" onclick="event.stopPropagation();deleteSet('+s.id+')">✕</button></div>';
+  }).join('');
+}
+
+
 // ─── INIT ───────────────────────────────────────────────
 loadData();
+loadMeta();
 renderLandList();
 renderBuildingList();
 updateSummary();
