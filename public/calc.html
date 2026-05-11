@@ -447,7 +447,7 @@
     .tabs { padding: 16px 16px 0; }
   }
 
-  /* 사건번호/의뢰인 */
+  /* 영업사원/의뢰인 */
   .case-bar {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -531,10 +531,10 @@
 
 
 <div class="case-bar">
-  <label>사건번호</label>
-  <input type="text" id="case-number" placeholder="예: 2024타경12345" oninput="saveCaseInfo()">
-  <label>의뢰인명</label>
-  <input type="text" id="client-name" placeholder="예: 홍길동" oninput="saveCaseInfo()">
+  <label>영업사원</label>
+  <input type="text" id="case-number" placeholder="예: 박현진" oninput="saveCaseInfo()">
+  <label>거래처(농장)</label>
+  <input type="text" id="client-name" placeholder="예: 선경농장" oninput="saveCaseInfo()">
 </div>
 
 <div class="tabs">
@@ -624,7 +624,7 @@
 
 <script>
 
-// ─── 사건번호/의뢰인 ───────────────────────────────────────
+// ─── 영업사원/의뢰인 ───────────────────────────────────────
 function saveCaseInfo() {
   localStorage.setItem('appraisal_case', document.getElementById('case-number').value);
   localStorage.setItem('appraisal_client', document.getElementById('client-name').value);
@@ -648,7 +648,7 @@ function saveSet() {
   });
   localStorage.setItem('appraisal_sets', JSON.stringify(sets));
   alert('저장됐어요! 📁');
-  renderSetList();
+  renderSetList('');
 }
 
 function loadSet(id) {
@@ -668,25 +668,54 @@ function deleteSet(id) {
   let sets = JSON.parse(localStorage.getItem('appraisal_sets') || '[]');
   sets = sets.filter(s => s.id !== id);
   localStorage.setItem('appraisal_sets', JSON.stringify(sets));
-  renderSetList();
+  renderSetList('');
 }
 
 function toggleSetList() {
   const panel = document.getElementById('set-list-panel');
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  if (panel.style.display === 'block') renderSetList();
+  if (panel.style.display === 'block') renderSetList('');
 }
 
-function renderSetList() {
+function renderSetList(filterSales) {
   const sets = JSON.parse(localStorage.getItem('appraisal_sets') || '[]');
   const container = document.getElementById('set-list');
-  if (!sets.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">저장된 세트가 없습니다</div>'; return; }
-  container.innerHTML = sets.map(s =>
-    '<div class="set-item" onclick="loadSet(' + s.id + ')">' +
-    '<div><div class="set-item-name">' + s.name + '</div>' +
-    '<div class="set-item-meta">' + (s.clientNm||'') + ' · ' + fmt(s.total) + '원 · ' + s.savedAt + '</div></div>' +
-    '<button class="set-del-btn" onclick="event.stopPropagation();deleteSet(' + s.id + ')">✕</button></div>'
-  ).join('');
+  
+  // 영업사원 목록 추출
+  const salesPeople = [...new Set(sets.map(s=>s.caseNum).filter(Boolean))];
+  
+  // 필터 UI
+  let filterHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
+  filterHtml += '<button onclick="renderSetList('')" style="' + 
+    'background:' + (!filterSales ? 'var(--accent)' : 'var(--surface2)') + ';' +
+    'color:' + (!filterSales ? 'white' : 'var(--text2)') + ';' +
+    'border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">전체</button>';
+  salesPeople.forEach(sp => {
+    const active = filterSales === sp;
+    filterHtml += '<button onclick="renderSetList('' + sp + '')" style="' +
+      'background:' + (active ? 'var(--accent)' : 'var(--surface2)') + ';' +
+      'color:' + (active ? 'white' : 'var(--text2)') + ';' +
+      'border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">' + sp + '</button>';
+  });
+  filterHtml += '</div>';
+  
+  const filtered = filterSales ? sets.filter(s=>s.caseNum===filterSales) : sets;
+  
+  if (!sets.length) { 
+    container.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">저장된 세트가 없습니다</div>'; 
+    return; 
+  }
+  
+  const listHtml = filtered.length === 0 
+    ? '<div style="font-size:12px;color:var(--text3);padding:8px">해당 영업사원의 세트가 없습니다</div>'
+    : filtered.map(s =>
+        '<div class="set-item" onclick="loadSet(' + s.id + ')">' +
+        '<div><div class="set-item-name">' + (s.name||'') + '</div>' +
+        '<div class="set-item-meta">👤 ' + (s.caseNum||'') + ' · 🏡 ' + (s.clientNm||'') + ' · ' + fmt(s.total) + '원 · ' + s.savedAt + '</div></div>' +
+        '<button class="set-del-btn" onclick="event.stopPropagation();deleteSet(' + s.id + ')">✕</button></div>'
+      ).join('');
+  
+  container.innerHTML = filterHtml + listHtml;
 }
 
 // ─── 드래그 앤 드롭 ────────────────────────────────────────
@@ -1202,8 +1231,8 @@ function copyResult() {
   const caseNum = document.getElementById('case-number').value;
   const clientNm = document.getElementById('client-name').value;
   let text = '=== 감정평가 결과 ===\n';
-  if (caseNum) text += '사건번호: ' + caseNum + '\n';
-  if (clientNm) text += '의뢰인: ' + clientNm + '\n';
+  if (caseNum) text += '영업사원: ' + caseNum + '\n';
+  if (clientNm) text += '거래처: ' + clientNm + '\n';
   text += '\n';
   if (landItems.length > 0) {
     text += '[토지]\n';
