@@ -517,7 +517,7 @@
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:6px">
         <span style="font-size:12px;color:var(--text2)">소계: </span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-left:6px" id="land-subtotal">0원</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-left:6px" id="land-subtotal">0원</span></div><div style="display:flex;justify-content:flex-end;margin-top:3px"><span style="font-size:12px;color:var(--text2)">면적 합계: </span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);margin-left:6px" id="land-area-total">0㎡</span>
       </div>
     </div>
 
@@ -530,7 +530,7 @@
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:6px">
         <span style="font-size:12px;color:var(--text2)">소계: </span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-left:6px" id="building-subtotal">0원</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-left:6px" id="building-subtotal">0원</span></div><div style="display:flex;justify-content:flex-end;margin-top:3px"><span style="font-size:12px;color:var(--text2)">면적 합계: </span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);margin-left:6px" id="building-area-total">0㎡</span>
       </div>
     </div>
 
@@ -747,8 +747,8 @@ function renderLandList() {
             oninput="fmtPrice(this); landItems[${idx}].officialPrice=this.value.replace(/,/g,''); calcLand(${idx})">
         </div>
         <div class="field">
-          <label>면적</label>
-          <div style="display:flex;gap:6px;align-items:center"><input type="number" placeholder="100" value="${item.area}" oninput="landItems[${idx}].area=this.value; calcLand(${idx})" style="flex:1"><button class="unit-toggle" onclick="convUnit('land',${idx},this)">${item.areaUnit==='py'?'평→㎡':'㎡→평'}</button></div>
+          <label>면적 (㎡)</label>
+          <input type="number" placeholder="예: 100" value="${item.area}" oninput="landItems[${idx}].area=this.value; calcLand(${idx})">
         </div>
       </div>
 
@@ -888,8 +888,8 @@ function renderBuildingList() {
 
       <div class="form-grid">
         <div class="field">
-          <label>면적</label>
-          <div style="display:flex;gap:6px;align-items:center"><input type="number" placeholder="150" value="${item.area}" oninput="buildingItems[${idx}].area=this.value; calcBuilding(${idx})" style="flex:1"><button class="unit-toggle" onclick="convUnit('building',${idx},this)">${item.areaUnit==='py'?'평→㎡':'㎡→평'}</button></div>
+          <label>면적 (㎡)</label>
+          <input type="number" placeholder="예: 150" value="${item.area}" oninput="buildingItems[${idx}].area=this.value; calcBuilding(${idx})">
         </div>
         <div class="field">
           <label>적용 지수 합산</label>
@@ -938,7 +938,17 @@ function updateSummary() {
 
   document.getElementById('grand-total').textContent = fmt(grand);
   document.getElementById('land-subtotal').textContent = fmt(landTotal) + '원';
+  var landAreaEl = document.getElementById('land-area-total');
+  if (landAreaEl) {
+    var landArea = landItems.reduce(function(s,i){ return s + (parseFloat(i.area)||0); }, 0);
+    landAreaEl.textContent = landArea.toLocaleString('ko-KR', {maximumFractionDigits:2}) + '㎡';
+  }
   document.getElementById('building-subtotal').textContent = fmt(buildingTotal) + '원';
+  var bldAreaEl = document.getElementById('building-area-total');
+  if (bldAreaEl) {
+    var bldArea = buildingItems.reduce(function(s,i){ return s + (parseFloat(i.area)||0); }, 0);
+    bldAreaEl.textContent = bldArea.toLocaleString('ko-KR', {maximumFractionDigits:2}) + '㎡';
+  }
 
   // land summary
   const ls = document.getElementById('land-summary');
