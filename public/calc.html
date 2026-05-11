@@ -743,7 +743,7 @@ function renderLandList() {
       <div class="form-grid">
         <div class="field">
           <label>공시지가 (원/㎡)</label>
-          <input type="number" placeholder="예: 500000" value="${item.officialPrice}"
+          <input type="text" inputmode="numeric" placeholder="예: 500,000" value="${item.officialPrice ? Number(item.officialPrice).toLocaleString('ko-KR') : ''}"
             oninput="fmtPrice(this); landItems[${idx}].officialPrice=this.value.replace(/,/g,''); calcLand(${idx})">
         </div>
         <div class="field">
