@@ -1124,12 +1124,15 @@ function renderSetList(filterSales) {
   sets.forEach(function(s){ if(s.sales && people.indexOf(s.sales)<0) people.push(s.sales); });
 
   // 필터 버튼
-  var fbHtml = '<button class="filter-btn" onclick="renderSetList('')" style="background:'+(filterSales===''?'var(--accent)':'var(--surface2)')+';color:'+(filterSales===''?'white':'var(--text2)')+'">전체</button>';
+  var fbHtml = '<button class="filter-btn" data-filter="" style="background:'+(filterSales===''?'var(--accent)':'var(--surface2)')+';color:'+(filterSales===''?'white':'var(--text2)')+'">전체</button>';
   people.forEach(function(p) {
     var active = filterSales===p;
-    fbHtml += '<button class="filter-btn" onclick="renderSetList(''+p+'')" style="background:'+(active?'var(--accent)':'var(--surface2)')+';color:'+(active?'white':'var(--text2)')+'">'+p+'</button>';
+    fbHtml += '<button class="filter-btn" data-filter="'+p+'" style="background:'+(active?'var(--accent)':'var(--surface2)')+';color:'+(active?'white':'var(--text2)')+'">'+p+'</button>';
   });
   filterDiv.innerHTML = fbHtml;
+  filterDiv.querySelectorAll('.filter-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ renderSetList(this.getAttribute('data-filter')); });
+  });
 
   // 세트 목록
   var filtered = filterSales ? sets.filter(function(s){return s.sales===filterSales;}) : sets;
