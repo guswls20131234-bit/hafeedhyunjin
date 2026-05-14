@@ -489,16 +489,21 @@ export default function SowPage({ farmSlug }) {
 
     if (error || !savedSow) { console.error(error); return }
 
-    // 2. 사이클 저장 — parity로만 existing 판단 (sow_record_id는 upsert 후 달라질 수 있음)
+    // 2. 사이클 저장 — parity로만 existing 판단
     if (cycle && cycle.parity) {
+      // 빈 문자열 → null 변환, id 제거
+      const { id: cycleId, ...cycleRest } = cycle
+      const cleanCycle = Object.fromEntries(
+        Object.entries(cycleRest).map(([k,v]) => [k, v === '' ? null : v])
+      )
       const existing = (sowCycles||[]).find(c => c.parity === cycle.parity)
       if (existing && existing.id) {
         await supabase.from('sow_cycles').update({
-          ...cycle, sow_record_id: savedSow.id, farm_slug: farmSlug
+          ...cleanCycle, sow_record_id: savedSow.id, farm_slug: farmSlug
         }).eq('id', existing.id)
       } else {
         await supabase.from('sow_cycles').insert({
-          ...cycle, sow_record_id: savedSow.id, farm_slug: farmSlug
+          ...cleanCycle, sow_record_id: savedSow.id, farm_slug: farmSlug
         })
       }
     }
