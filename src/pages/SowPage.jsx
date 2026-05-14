@@ -40,7 +40,8 @@ function daysSince(dateStr) {
 // 상태 자동 계산
 function calcStatus(sow, latestCycle) {
   if (sow.cull_date) return '도태'
-  if (!latestCycle) return '공태'
+  // 종부 이력이 없으면 후보돈
+  if (!latestCycle || !latestCycle.mating_date) return '후보돈'
   if (latestCycle.farrow_date && !latestCycle.wean_date) return '수유중'
   if (latestCycle.mating_date && !latestCycle.farrow_date && latestCycle.diag_result !== '재발') return '임신중'
   return '공태'
@@ -50,6 +51,7 @@ const STATUS_STYLE = {
   '임신중': { bg: '#E1F5EE', color: '#085041', label: '임신중' },
   '수유중': { bg: '#FEF5E7', color: '#935A07', label: '수유중' },
   '공태':   { bg: '#F5F6F4', color: '#888',    label: '공태'   },
+  '후보돈': { bg: '#EDE8FB', color: '#5B3FA6', label: '후보돈' },
   '도태':   { bg: '#FDECEA', color: '#C0392B', label: '도태'   },
 }
 
@@ -77,41 +79,78 @@ function DateInput({ value, onChange, label, placeholder, min, max }) {
 // ── 산차별 성적 그래프 ──────────────────────────────────────
 function SowChart({ cycles }) {
   if (!cycles.length) return <div style={{color:'#aaa',fontSize:12,textAlign:'center',padding:20}}>산차 데이터 없음</div>
-  const maxBorn = Math.max(...cycles.map(c => c.born_alive || 0), 1)
-  const maxWeaned = Math.max(...cycles.map(c => c.weaned || 0), 1)
+  const sorted = cycles.filter(c=>c.parity).sort((a,b)=>a.parity-b.parity)
+  const maxBorn   = Math.max(...sorted.map(c => c.born_alive || 0), 1)
+  const maxWeaned = Math.max(...sorted.map(c => c.weaned || 0), 1)
+
+  // 공태기간 계산: 이유일 → 다음 종부일
+  function idleDays(c, idx) {
+    const weanDate = c.wean_date
+    const nextCycle = sorted[idx + 1]
+    const nextMating = nextCycle?.mating_date
+    if (!weanDate || !nextMating) return null
+    return Math.round((new Date(nextMating) - new Date(weanDate)) / 86400000)
+  }
+
   return (
     <div style={{padding:'12px 0'}}>
       <div style={{fontSize:12,color:'#888',marginBottom:12}}>산차별 성적</div>
-      {cycles.filter(c=>c.parity).sort((a,b)=>a.parity-b.parity).map(c => (
-        <div key={c.id} style={{marginBottom:12}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#888',marginBottom:4}}>
-            <span>{c.parity}산차</span>
-            <span>산자 {c.born_alive||0}두 / 이유 {c.weaned||0}두</span>
-          </div>
-          <div style={{display:'flex',gap:4,flexDirection:'column'}}>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:10,color:'#1D9E75',width:28}}>산자</span>
-              <div style={{flex:1,background:'#F1EFE8',borderRadius:99,height:10,overflow:'hidden'}}>
-                <div style={{width:`${((c.born_alive||0)/maxBorn)*100}%`,height:'100%',background:'#1D9E75',borderRadius:99}}/>
-              </div>
-              <span style={{fontSize:10,color:'#1D9E75',width:20,textAlign:'right'}}>{c.born_alive||0}</span>
+      {sorted.map((c, idx) => {
+        const idle = idleDays(c, idx)
+        return (
+          <div key={c.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'0.5px solid rgba(0,0,0,0.06)'}}>
+            {/* 산차 헤더 */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:'#1a1a18'}}>{c.parity}산차</span>
+              <span style={{fontSize:11,color:'#888'}}>산자 {c.born_alive||0}두 / 이유 {c.weaned||0}두</span>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:10,color:'#378ADD',width:28}}>이유</span>
-              <div style={{flex:1,background:'#F1EFE8',borderRadius:99,height:10,overflow:'hidden'}}>
-                <div style={{width:`${((c.weaned||0)/maxWeaned)*100}%`,height:'100%',background:'#378ADD',borderRadius:99}}/>
+
+            {/* 날짜 정보 */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+              {[
+                {label:'종부일', val: c.mating_date ? fmtFull(c.mating_date) : '—', color:'#085041'},
+                {label:'분만일', val: c.farrow_date ? fmtFull(c.farrow_date) : '—', color:'#935A07'},
+                {label:'이유일', val: c.wean_date ? fmtFull(c.wean_date) : '—', color:'#378ADD'},
+                {label:'공태기간', val: idle !== null ? `${idle}일` : '—', color: idle !== null && idle > 21 ? '#C0392B' : '#555'},
+              ].map(({label, val, color}) => (
+                <div key={label} style={{background:'#F5F6F4',borderRadius:7,padding:'6px 10px'}}>
+                  <div style={{fontSize:9,color:'#aaa',marginBottom:1}}>{label}</div>
+                  <div style={{fontSize:12,fontWeight:600,color}}>{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 바 차트 */}
+            <div style={{display:'flex',gap:4,flexDirection:'column'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:10,color:'#1D9E75',width:28}}>산자</span>
+                <div style={{flex:1,background:'#F1EFE8',borderRadius:99,height:10,overflow:'hidden'}}>
+                  <div style={{width:`${((c.born_alive||0)/maxBorn)*100}%`,height:'100%',background:'#1D9E75',borderRadius:99}}/>
+                </div>
+                <span style={{fontSize:10,color:'#1D9E75',width:20,textAlign:'right'}}>{c.born_alive||0}</span>
               </div>
-              <span style={{fontSize:10,color:'#378ADD',width:20,textAlign:'right'}}>{c.weaned||0}</span>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:10,color:'#378ADD',width:28}}>이유</span>
+                <div style={{flex:1,background:'#F1EFE8',borderRadius:99,height:10,overflow:'hidden'}}>
+                  <div style={{width:`${((c.weaned||0)/maxWeaned)*100}%`,height:'100%',background:'#378ADD',borderRadius:99}}/>
+                </div>
+                <span style={{fontSize:10,color:'#378ADD',width:20,textAlign:'right'}}>{c.weaned||0}</span>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
-      <div style={{marginTop:16,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)'}}>
+        )
+      })}
+
+      {/* 요약 */}
+      <div style={{marginTop:4}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
           {[
-            {label:'평균 산자수', val: cycles.filter(c=>c.born_alive>0).length ? (cycles.reduce((a,c)=>a+(c.born_alive||0),0)/cycles.filter(c=>c.born_alive>0).length).toFixed(1) : '—'},
-            {label:'평균 이유두수', val: cycles.filter(c=>c.weaned>0).length ? (cycles.reduce((a,c)=>a+(c.weaned||0),0)/cycles.filter(c=>c.weaned>0).length).toFixed(1) : '—'},
-            {label:'총 산차', val: cycles.length},
+            {label:'평균 산자수', val: sorted.filter(c=>c.born_alive>0).length ? (sorted.reduce((a,c)=>a+(c.born_alive||0),0)/sorted.filter(c=>c.born_alive>0).length).toFixed(1) : '—'},
+            {label:'평균 이유두수', val: sorted.filter(c=>c.weaned>0).length ? (sorted.reduce((a,c)=>a+(c.weaned||0),0)/sorted.filter(c=>c.weaned>0).length).toFixed(1) : '—'},
+            {label:'평균 공태기간', val: (() => {
+              const idles = sorted.map((c,i)=>idleDays(c,i)).filter(v=>v!==null)
+              return idles.length ? Math.round(idles.reduce((a,v)=>a+v,0)/idles.length)+'일' : '—'
+            })()},
           ].map(({label,val}) => (
             <div key={label} style={{background:'#F5F6F4',borderRadius:8,padding:'8px 10px',textAlign:'center'}}>
               <div style={{fontSize:9,color:'#888',marginBottom:2}}>{label}</div>
@@ -125,7 +164,7 @@ function SowChart({ cycles }) {
 }
 
 // ── 개체 상세 모달 ──────────────────────────────────────────
-function SowModal({ sow, cycles, onClose, onSave, onDelete, farmSlug }) {
+function SowModal({ sow, cycles, onClose, onSave, onDelete, onDeleteCycle, farmSlug }) {
   const [tab, setTab] = useState('info') // 'info' | 'cycle' | 'chart'
   const [selParity, setSelParity] = useState(cycles.length > 0 ? Math.max(...cycles.map(c=>c.parity)) : 1)
   const [info, setInfo] = useState({ ...sow })
@@ -269,6 +308,17 @@ function SowModal({ sow, cycles, onClose, onSave, onDelete, farmSlug }) {
                     <option key={p} value={p}>{p}산차 {cycles.find(c=>c.parity===p) ? '✓' : '(신규)'}</option>
                   ))}
                 </select>
+                {cycles.find(c=>c.parity===selParity) && (
+                  <button onClick={async()=>{
+                    if(!confirm(`${selParity}산차 데이터를 삭제할까요?`)) return
+                    const target = cycles.find(c=>c.parity===selParity)
+                    await onDeleteCycle(target.id)
+                  }}
+                    style={{flexShrink:0,padding:'7px 10px',background:'#FDECEA',border:'none',borderRadius:8,
+                      color:'#C0392B',fontSize:12,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
+                    삭제
+                  </button>
+                )}
               </div>
 
               {/* 종부 */}
@@ -438,7 +488,7 @@ export default function SowPage({ farmSlug }) {
   })
 
   // 정렬: 임신중 → 수유중 → 공태 → 도태
-  const ORDER = { '임신중': 0, '수유중': 1, '공태': 2, '도태': 3 }
+  const ORDER = { '임신중': 0, '수유중': 1, '공태': 2, '후보돈': 3, '도태': 4 }
   const sorted = [...sowsWithStatus].sort((a, b) => {
     if (ORDER[a._status] !== ORDER[b._status]) return ORDER[a._status] - ORDER[b._status]
     if (a._status === '임신중') return (a._latestCycle?.expected_farrow || '') < (b._latestCycle?.expected_farrow || '') ? -1 : 1
@@ -521,6 +571,13 @@ export default function SowPage({ farmSlug }) {
     await load()
   }
 
+  async function handleDeleteCycle(cycleId) {
+    await supabase.from('sow_cycles').delete().eq('id', cycleId)
+    // modalCycles 업데이트
+    setModalCycles(prev => prev.filter(c => c.id !== cycleId))
+    await load()
+  }
+
   // 엑셀 다운로드 (주간 양식)
   function downloadWeekly() {
     const rows = [
@@ -581,7 +638,7 @@ export default function SowPage({ farmSlug }) {
 
       {/* 상태 필터 */}
       <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
-        {['전체','임신중','수유중','공태','도태'].map(f=>(
+        {['전체','임신중','수유중','공태','후보돈','도태'].map(f=>(
           <button key={f} onClick={()=>setFilter(f)}
             style={{padding:'5px 12px',border:`0.5px solid ${filter===f?'#1D9E75':'rgba(0,0,0,0.12)'}`,
               borderRadius:99,background:filter===f?'#1D9E75':'white',color:filter===f?'white':'#555',
@@ -645,7 +702,7 @@ export default function SowPage({ farmSlug }) {
 
       {/* 하단 요약 */}
       <div style={{marginTop:10,fontSize:11,color:'#aaa',textAlign:'right'}}>
-        총 {sows.filter(s=>!s.cull_date).length}두 (임신 {sowsWithStatus.filter(s=>s._status==='임신중').length} / 수유 {sowsWithStatus.filter(s=>s._status==='수유중').length} / 공태 {sowsWithStatus.filter(s=>s._status==='공태').length})
+        총 {sows.filter(s=>!s.cull_date).length}두 (임신 {sowsWithStatus.filter(s=>s._status==='임신중').length} / 수유 {sowsWithStatus.filter(s=>s._status==='수유중').length} / 공태 {sowsWithStatus.filter(s=>s._status==='공태').length} / 후보돈 {sowsWithStatus.filter(s=>s._status==='후보돈').length})
       </div>
 
       {/* 모달 */}
@@ -657,6 +714,7 @@ export default function SowPage({ farmSlug }) {
           onClose={()=>setModalSow(null)}
           onSave={handleSave}
           onDelete={handleDelete}
+          onDeleteCycle={handleDeleteCycle}
         />
       )}
     </div>
