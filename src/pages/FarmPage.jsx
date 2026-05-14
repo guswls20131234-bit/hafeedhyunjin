@@ -7,6 +7,7 @@ import FeedPage from './FeedPage'
 import CostPage from './CostPage'
 import ProductionPage from './ProductionPage'
 import PorkPriceToast from '../components/PorkPriceToast'
+import SowPage from './SowPage'
 
 function isGradePlus(cw, bf) { return cw>=83&&cw<93&&bf>=17&&bf<25 }
 function gradeLabel(cw, bf) {
@@ -193,6 +194,7 @@ const TABS = [
   { key: 'feed',       label: '사료현황' },
   { key: 'cost',       label: '비용현황' },
   { key: 'production', label: '생산관리' },
+  { key: 'sow',        label: '모돈현황' },
 ]
 
 export default function FarmPage() {
@@ -337,6 +339,7 @@ export default function FarmPage() {
       {/* 비용현황 탭 */}
       {tab==='cost' && <CostPage farmSlug={farmSlug} shipments={data} feedRecords={feedRecords}/>}
       {tab==='production' && <ProductionPage farmSlug={farmSlug}/>}
+      {tab==='sow' && <SowPage farmSlug={farmSlug}/>}
     </div>
     <Footer/>
   </>
