@@ -479,22 +479,24 @@ export default function SowPage({ farmSlug }) {
 
   // 저장
   async function handleSave(info, cycle, sowCycles) {
+    // _로 시작하는 계산 필드 제거 후 저장
+    const { _status, _latestCycle, _parity, ...cleanInfo } = info
+
     // 1. 모돈 기본정보 저장
     const { data: savedSow, error } = await supabase.from('sow_records').upsert({
-      ...info, farm_slug: farmSlug,
+      ...cleanInfo, farm_slug: farmSlug,
     }, { onConflict: 'farm_slug,sow_id' }).select().single()
 
     if (error || !savedSow) { console.error(error); return }
 
-    // 2. 사이클 저장 (modalCycles 기준으로 existing 찾기)
+    // 2. 사이클 저장 — parity로만 existing 판단 (sow_record_id는 upsert 후 달라질 수 있음)
     if (cycle && cycle.parity) {
-      const existing = (sowCycles||[]).find(c => c.sow_record_id === savedSow.id && c.parity === cycle.parity)
-      if (existing) {
+      const existing = (sowCycles||[]).find(c => c.parity === cycle.parity)
+      if (existing && existing.id) {
         await supabase.from('sow_cycles').update({
           ...cycle, sow_record_id: savedSow.id, farm_slug: farmSlug
         }).eq('id', existing.id)
       } else {
-        // 신규 산차 — 종부일 없어도 저장 허용
         await supabase.from('sow_cycles').insert({
           ...cycle, sow_record_id: savedSow.id, farm_slug: farmSlug
         })
