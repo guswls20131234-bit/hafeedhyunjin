@@ -479,8 +479,11 @@ export default function SowPage({ farmSlug }) {
 
   // 저장
   async function handleSave(info, cycle, sowCycles) {
-    // _로 시작하는 계산 필드 제거 후 저장
-    const { _status, _latestCycle, _parity, ...cleanInfo } = info
+    // _로 시작하는 계산 필드 제거 + 빈 문자열 → null 변환
+    const { _status, _latestCycle, _parity, ...infoRest } = info
+    const cleanInfo = Object.fromEntries(
+      Object.entries(infoRest).map(([k,v]) => [k, v === '' ? null : v])
+    )
 
     // 1. 모돈 기본정보 저장
     const { data: savedSow, error } = await supabase.from('sow_records').upsert({
