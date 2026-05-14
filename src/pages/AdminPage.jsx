@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import SowPage from './SowPage'
 import { parseExcel } from '../lib/parseExcel'
 import ScatterChart from '../components/ScatterChart'
 import Footer from '../components/Footer'
@@ -520,7 +521,7 @@ export default function AdminPage() {
 
     {/* 상단 탭 메뉴 */}
     <div style={{display:'flex',gap:2,background:'white',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:10,padding:4,marginBottom:14}}>
-      {[{key:'shipment',label:'출하성적'},{key:'feed',label:'사료현황'},{key:'cost',label:'비용현황'},{key:'production',label:'생산관리'},{key:'sales',label:'영업관리'}].map(t=>(
+      {[{key:'shipment',label:'출하성적'},{key:'feed',label:'사료현황'},{key:'cost',label:'비용현황'},{key:'production',label:'생산관리'},{key:'sow',label:'모돈관리'},{key:'sales',label:'영업관리'}].map(t=>(
         <button key={t.key} onClick={()=>{ setTab(t.key); if(t.key==='sales') loadSalesHistory() }}
           style={{flex:1,padding:'8px 4px',border:'none',borderRadius:7,cursor:'pointer',fontFamily:'inherit',
             fontSize:13,fontWeight:500,transition:'all 0.15s',
@@ -534,6 +535,7 @@ export default function AdminPage() {
     {tab==='feed' && <FeedPage farmSlug={selFarm?.slug||'admin'} isAdmin={true}/>}
     {tab==='cost' && <CostPage farmSlug={selFarm?.slug||'admin'} shipments={shipments} feedRecords={farmFeedRecs}/>}
     {tab==='production' && <ProductionPage farmSlug={selFarm?.slug||'admin'}/>}
+    {tab==='sow' && <SowPage farmSlug={selFarm?.slug||'admin'}/>}
     {tab==='sales' && (
       <div style={{paddingBottom:'2rem'}}>
         {salesView==='report' && salesReport ? (
