@@ -39,6 +39,8 @@ export default function ProductionPage({ farmSlug }) {
       mating:       rec.mating||0,
       farrowing:    rec.farrowing||0,
       born:         rec.born||0,
+      total_born:   rec.total_born||0,
+      piglet_death: rec.piglet_death||0,
       weaning:      rec.weaning||0,
       weaned:       rec.weaned||0,
       diag_total:   rec.diag_total||0,
