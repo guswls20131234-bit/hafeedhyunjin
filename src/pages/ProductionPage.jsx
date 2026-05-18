@@ -247,10 +247,10 @@ export default function ProductionPage({ farmSlug }) {
               </thead>
               <tbody>
                 {records.map((r,i)=>{
-                  const b   = r.farrowing>0?(r.born/r.farrowing).toFixed(1):'—'
+                  const realBorn = (r.total_born||0) > 0 ? (r.total_born||0) - (r.piglet_death||0) : '—'
+                  const b   = r.farrowing>0 && (r.total_born||0)>0
+                    ? (((r.total_born||0) - (r.piglet_death||0)) / r.farrowing).toFixed(1) : '—'
                   const w   = r.weaning>0?(r.weaned/r.weaning).toFixed(1):'—'
-                  const realBorn = r.farrowing>0 && r.total_born>0
-                    ? ((r.total_born - (r.piglet_death||0)) / r.farrowing).toFixed(1) : '—'
                   const dr  = r.diag_total>0&&r.diag_preg>0?((r.diag_preg/r.diag_total)*100).toFixed(1)+'%':'—'
                   const isCur = r.month===month
                   return (
@@ -287,7 +287,10 @@ export default function ProductionPage({ farmSlug }) {
                     </td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#BA7517'}}>{tot('weaning')}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600}}>{tot('weaned')}</td>
-                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>{tot('farrowing')>0?(tot('born')/tot('farrowing')).toFixed(1):'—'}</td>
+                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>
+                      {tot('farrowing')>0&&tot('total_born')>0
+                        ? ((tot('total_born')-tot('piglet_death'))/tot('farrowing')).toFixed(1) : '—'}
+                    </td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>{tot('weaning')>0?(tot('weaned')/tot('weaning')).toFixed(1):'—'}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#2563EB'}}>{tot('diag_total')>0?((tot('diag_preg')/tot('diag_total'))*100).toFixed(1)+'%':'—'}</td>
                   </tr>
