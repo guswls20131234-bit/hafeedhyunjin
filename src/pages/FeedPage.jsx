@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase'
 import * as XLSX from 'xlsx'
 
 const SECTIONS = [
-  { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호','체인지'] },
-  { key:'sow',       label:'모돈 구간', color:'#1D9E75', bg:'#E1F5EE', feeds:['임신돈','포유돈'] },
+  { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호'] },
+  { key:'lactation', label:'젖돈 구간', color:'#7B3FAB', bg:'#F0E6FB', feeds:['체인지','1호사료'] },
+  { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['2호사료'] },  { key:'sow',       label:'모돈 구간', color:'#1D9E75', bg:'#E1F5EE', feeds:['임신돈','포유돈'] },
   { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['1호사료','2호사료'] },
   { key:'etc',       label:'기타',      color:'#5F5E5A', bg:'#F1EFE8', feeds:['기타1','기타2'] },
 ]
