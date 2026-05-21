@@ -3,10 +3,9 @@ import { supabase } from '../lib/supabase'
 import * as XLSX from 'xlsx'
 
 const SECTIONS = [
-  { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호'] },
-  { key:'lactation', label:'젖돈 구간', color:'#7B3FAB', bg:'#F0E6FB', feeds:['체인지','1호사료'] },
-  { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['2호사료'] },
+  { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호','체인지'] },
   { key:'sow',       label:'모돈 구간', color:'#1D9E75', bg:'#E1F5EE', feeds:['임신돈','포유돈'] },
+  { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['1호사료','2호사료'] },
   { key:'etc',       label:'기타',      color:'#5F5E5A', bg:'#F1EFE8', feeds:['기타1','기타2'] },
 ]
 const ALL_FEEDS = SECTIONS.flatMap(s => s.feeds.map(f => ({section:s.key, sectionLabel:s.label, feed:f})))
@@ -321,52 +320,112 @@ function SectionCard({ section, records, onSave, year, month, grandTotalKg, gran
   )
 }
 
-// ── CompareCard (kg/금액 토글 지원) ──────────────────
-function CompareCard({ records, prevRecords, month, showWon }) {
-  const prevMonth = month===1?12:month-1
-  const getAmt = (recs, sec, feed, key='amount_kg') => {
-    const r = recs.find(r=>r.section===sec&&r.feed_name===feed)
-    return r ? Number(r[key]||0) : 0
-  }
-  const allFeeds = SECTIONS.flatMap(s=>s.feeds.map(f=>({section:s,feedName:f})))
-  const key = showWon ? 'amount_won' : 'amount_kg'
-  const maxAmt = Math.max(...allFeeds.map(({section:s,feedName:f})=>
-    Math.max(getAmt(records,s.key,f,key),getAmt(prevRecords,s.key,f,key))
-  ),1)
+// ── MonthlyTable (월별 사료 사용량 표) ──────────────────
+function MonthlyTable({ yearRecords, year, showWon }) {
+  const key  = showWon ? 'amount_won' : 'amount_kg'
+  const unit = showWon ? '원' : 'kg'
+
+  // 월별 구간별 합계
+  const months = Array.from({length:12}, (_,i) => i+1)
+  const rows = months.map(m => {
+    const recs = yearRecords.filter(r => r.month === m)
+    if (!recs.length) return null
+    const bySection = {}
+    SECTIONS.forEach(s => {
+      bySection[s.key] = recs.filter(r=>r.section===s.key).reduce((a,r)=>a+Number(r[key]||0),0)
+    })
+    const total = Object.values(bySection).reduce((a,v)=>a+v,0)
+    return { month:m, ...bySection, total }
+  }).filter(Boolean)
+
+  if (!rows.length) return null
+
+  const grandTotal = rows.reduce((a,r)=>a+r.total,0)
 
   return (
     <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:10,padding:14,marginBottom:10}}>
-      <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>전월 비교</div>
-      <div style={{display:'flex',gap:12,fontSize:11,color:'#888',marginBottom:12}}>
-        <span><span style={{display:'inline-block',width:8,height:5,borderRadius:99,background:'#D3D1C7',marginRight:3,verticalAlign:'middle'}}></span>{prevMonth}월</span>
-        <span><span style={{display:'inline-block',width:8,height:5,borderRadius:99,background:'#378ADD',marginRight:3,verticalAlign:'middle'}}></span>{month}월</span>
+      <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{year}년 월별 사료 사용량</div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:400}}>
+          <thead>
+            <tr style={{background:'#F5F6F4'}}>
+              <th style={{padding:'7px 8px',textAlign:'center',fontWeight:500,color:'#888',whiteSpace:'nowrap'}}>월</th>
+              {SECTIONS.map(s=>(
+                <th key={s.key} style={{padding:'7px 8px',textAlign:'right',fontWeight:500,color:s.color,whiteSpace:'nowrap'}}>{s.label.replace(' 구간','')}</th>
+              ))}
+              <th style={{padding:'7px 8px',textAlign:'right',fontWeight:600,color:'#1a1a18'}}>합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r,i)=>(
+              <tr key={r.month} style={{borderBottom:'0.5px solid rgba(0,0,0,0.05)',background:i%2===0?'white':'#FAFAFA'}}>
+                <td style={{padding:'7px 8px',textAlign:'center',fontWeight:500,color:'#1a1a18'}}>{r.month}월</td>
+                {SECTIONS.map(s=>(
+                  <td key={s.key} style={{padding:'7px 8px',textAlign:'right',color:r[s.key]>0?s.color:'#ccc'}}>
+                    {r[s.key]>0 ? r[s.key].toLocaleString() : '—'}
+                  </td>
+                ))}
+                <td style={{padding:'7px 8px',textAlign:'right',fontWeight:700,color:'#1a1a18'}}>{r.total.toLocaleString()}</td>
+              </tr>
+            ))}
+            {/* 합계 행 */}
+            <tr style={{background:'#F5F6F4',borderTop:'1px solid rgba(0,0,0,0.1)'}}>
+              <td style={{padding:'7px 8px',textAlign:'center',fontWeight:700,color:'#1a1a18'}}>합계</td>
+              {SECTIONS.map(s=>{
+                const tot = rows.reduce((a,r)=>a+r[s.key],0)
+                return (
+                  <td key={s.key} style={{padding:'7px 8px',textAlign:'right',fontWeight:600,color:s.color}}>
+                    {tot>0 ? tot.toLocaleString() : '—'}
+                  </td>
+                )
+              })}
+              <td style={{padding:'7px 8px',textAlign:'right',fontWeight:700,color:'#1a1a18'}}>{grandTotal.toLocaleString()}</td>
+            </tr>
+            {/* 비율 행 */}
+            <tr style={{background:'white'}}>
+              <td style={{padding:'7px 8px',textAlign:'center',fontSize:10,color:'#888'}}>비율</td>
+              {SECTIONS.map(s=>{
+                const tot = rows.reduce((a,r)=>a+r[s.key],0)
+                const ratio = grandTotal>0 ? Math.round(tot/grandTotal*100) : 0
+                return (
+                  <td key={s.key} style={{padding:'7px 8px',textAlign:'right',fontSize:11,color:s.color}}>
+                    {ratio>0 ? `${ratio}%` : '—'}
+                  </td>
+                )
+              })}
+              <td style={{padding:'7px 8px',textAlign:'right',fontSize:11,fontWeight:600,color:'#888'}}>100%</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      {SECTIONS.map(section=>(
-        <div key={section.key} style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:500,color:section.color,marginBottom:6}}>{section.label}</div>
-          {section.feeds.map(feedName=>{
-            const cur  = getAmt(records,section.key,feedName,key)
-            const prev = getAmt(prevRecords,section.key,feedName,key)
-            const diff = cur - prev
-            return (
-              <div key={feedName} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                <div style={{width:56,fontSize:11,fontWeight:500,color:'#333',flexShrink:0}}>{feedName}</div>
-                <div style={{flex:1}}>
-                  <div style={{background:'#F1EFE8',borderRadius:99,height:5,overflow:'hidden',marginBottom:3}}>
-                    <div style={{width:`${pct(prev,maxAmt)}%`,height:'100%',borderRadius:99,background:'#D3D1C7',transition:'width 0.4s'}}/>
-                  </div>
-                  <div style={{background:'#F1EFE8',borderRadius:99,height:5,overflow:'hidden'}}>
-                    <div style={{width:`${pct(cur,maxAmt)}%`,height:'100%',borderRadius:99,background:section.color,transition:'width 0.4s'}}/>
-                  </div>
-                </div>
-                <div style={{width:52,textAlign:'right',fontSize:10}}>
-                  {diff!==0?<span style={{color:diff>0?'#A32D2D':'#085041',fontWeight:500}}>{diff>0?'▲':'▼'} {Math.abs(diff).toLocaleString()}</span>:<span style={{color:'#aaa'}}>—</span>}
-                </div>
+
+      {/* 구간별 비율 바 */}
+      <div style={{marginTop:14,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)'}}>
+        <div style={{fontSize:11,color:'#888',marginBottom:8}}>구간별 비율</div>
+        <div style={{display:'flex',height:18,borderRadius:99,overflow:'hidden',gap:1}}>
+          {SECTIONS.map(s=>{
+            const tot = rows.reduce((a,r)=>a+r[s.key],0)
+            const ratio = grandTotal>0 ? (tot/grandTotal*100) : 0
+            return ratio>0 ? (
+              <div key={s.key} style={{width:`${ratio}%`,background:s.color,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                {ratio>8 && <span style={{fontSize:9,color:'white',fontWeight:700}}>{Math.round(ratio)}%</span>}
               </div>
-            )
+            ) : null
           })}
         </div>
-      ))}
+        <div style={{display:'flex',gap:10,marginTop:6,flexWrap:'wrap'}}>
+          {SECTIONS.map(s=>{
+            const tot = rows.reduce((a,r)=>a+r[s.key],0)
+            const ratio = grandTotal>0 ? Math.round(tot/grandTotal*100) : 0
+            return tot>0 ? (
+              <span key={s.key} style={{display:'flex',alignItems:'center',gap:4,fontSize:10}}>
+                <span style={{width:8,height:8,background:s.color,borderRadius:2,display:'inline-block'}}/>
+                <span style={{color:s.color}}>{s.label.replace(' 구간','')} {ratio}%</span>
+              </span>
+            ) : null
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -556,10 +615,10 @@ export default function FeedPage({ farmSlug, isAdmin }) {
             </div>
           )}
 
-          <CompareCard records={records} prevRecords={prevRecs} month={month} showWon={showWon}/>
+          <MonthlyTable yearRecords={yearRecs} year={year} showWon={showWon}/>
         </>
       ) : (
-        <YearChart yearRecords={yearRecs} year={year} showWon={showWon}/>
+        <MonthlyTable yearRecords={yearRecs} year={year} showWon={showWon}/>
       )}
     </div>
   )
