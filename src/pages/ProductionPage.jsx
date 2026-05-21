@@ -714,7 +714,7 @@ export default function ProductionPage({ farmSlug }) {
           </div>
         )
       })()}
-    </div>
     </>)}
+    </div>
   )
 }
