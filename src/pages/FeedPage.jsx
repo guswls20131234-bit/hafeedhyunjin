@@ -3,9 +3,10 @@ import { supabase } from '../lib/supabase'
 import * as XLSX from 'xlsx'
 
 const SECTIONS = [
-  { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호','체인지'] },
+  { key:'piglet',    label:'자돈 구간', color:'#378ADD', bg:'#E6F1FB', feeds:['초유밀','자돈1호','자돈2호','자돈3호'] },
+  { key:'lactation', label:'젖돈 구간', color:'#7B3FAB', bg:'#F0E6FB', feeds:['체인지','1호사료'] },
+  { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['2호사료'] },
   { key:'sow',       label:'모돈 구간', color:'#1D9E75', bg:'#E1F5EE', feeds:['임신돈','포유돈'] },
-  { key:'fattening', label:'비육 구간', color:'#BA7517', bg:'#FAEEDA', feeds:['1호사료','2호사료'] },
   { key:'etc',       label:'기타',      color:'#5F5E5A', bg:'#F1EFE8', feeds:['기타1','기타2'] },
 ]
 const ALL_FEEDS = SECTIONS.flatMap(s => s.feeds.map(f => ({section:s.key, sectionLabel:s.label, feed:f})))
@@ -19,7 +20,6 @@ function parseWonJang(arrayBuffer) {
   const ws   = wb.Sheets[wb.SheetNames[0]]
   const json = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true })
 
-  // 연월 파싱 (Row4에서 "2026-03-01 ~ 2026-03-31" 형태)
   let year = NOW.getFullYear(), month = NOW.getMonth()+1
   for (let i=0; i<6; i++) {
     const row = json[i] || []
@@ -29,7 +29,6 @@ function parseWonJang(arrayBuffer) {
     }
   }
 
-  // 거래처 파싱
   let farmName = ''
   for (let i=0; i<5; i++) {
     const row = json[i] || []
@@ -41,27 +40,17 @@ function parseWonJang(arrayBuffer) {
     if (farmName) break
   }
 
-  // 제품별 합계 행 찾기 (맨 아래 제품별 소계)
-  // "하이템포1호(산)" 같은 제품명만 있는 행 + 판매량(col7) + 판매금액(col9)
   const products = []
-  let inSummary = false
   for (let i=json.length-1; i>=0; i--) {
     const row = json[i]
     const name = String(row[0]||'').trim()
     if (!name || name.includes('합') || name.includes('계') || name.includes('Page') || name.includes('거래')) continue
-    // 날짜 패턴이면 skip
     if (/^\d{2}-\d{2}/.test(name)) continue
-    // 제품 소계 행: col1에 제품명, col7에 kg, col9에 금액
     const kg  = parseFloat(row[6]||0)
     const won = parseFloat(row[8]||0)
-    if (name && kg > 0) {
-      products.unshift({ name, kg, won })
-    }
-    // 합계 행 만나면 그 아래부터가 제품별 소계
-    if (name.includes('합') || name.includes('월 계')) { inSummary = true; break }
+    if (name && kg > 0) products.unshift({ name, kg, won })
   }
 
-  // fallback: 합계 행 이후 제품 소계 방식으로 재시도
   if (!products.length) {
     let summaryStart = -1
     for (let i=json.length-1; i>=0; i--) {
@@ -95,7 +84,6 @@ function MappingModal({ result, farmSlug, onDone, onCancel }) {
     if (!valid.length) { setStatus('❌ 최소 1개 이상 매핑해주세요.'); return }
     setSaving(true)
 
-    // 같은 section+feed 합산
     const merged = {}
     for (const m of valid) {
       const key = `${m.section}__${m.feed}`
@@ -104,7 +92,6 @@ function MappingModal({ result, farmSlug, onDone, onCancel }) {
       merged[key].won += m.won || 0
     }
 
-    // 기존 값 불러와서 누적 (이미 저장된 값이 있으면 더하기)
     const { data: existing } = await supabase.from('feed_records').select('*')
       .eq('farm_slug', farmSlug).eq('year', result.year).eq('month', result.month)
 
@@ -157,7 +144,6 @@ function MappingModal({ result, farmSlug, onDone, onCancel }) {
           </div>
         ))}
 
-        {/* 합산 미리보기 */}
         {(() => {
           const merged = {}
           mappings.filter(m=>m.section&&m.feed).forEach(m=>{
@@ -293,7 +279,6 @@ function SectionCard({ section, records, onSave, year, month, grandTotalKg, gran
         )
       })}
 
-      {/* 구간 합계 */}
       {!editing && (totalKg>0||totalWon>0) && (
         <div style={{marginTop:8,paddingTop:8,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',justifyContent:'flex-end',gap:12}}>
           {totalKg>0  && <span style={{fontSize:11,color:section.color,fontWeight:600}}>합계 {totalKg.toLocaleString()} kg</span>}
@@ -325,7 +310,6 @@ function MonthlyTable({ yearRecords, year, showWon }) {
   const key  = showWon ? 'amount_won' : 'amount_kg'
   const unit = showWon ? '원' : 'kg'
 
-  // 월별 구간별 합계
   const months = Array.from({length:12}, (_,i) => i+1)
   const rows = months.map(m => {
     const recs = yearRecords.filter(r => r.month === m)
@@ -339,7 +323,6 @@ function MonthlyTable({ yearRecords, year, showWon }) {
   }).filter(Boolean)
 
   if (!rows.length) return null
-
   const grandTotal = rows.reduce((a,r)=>a+r.total,0)
 
   return (
@@ -368,30 +351,20 @@ function MonthlyTable({ yearRecords, year, showWon }) {
                 <td style={{padding:'7px 8px',textAlign:'right',fontWeight:700,color:'#1a1a18'}}>{r.total.toLocaleString()}</td>
               </tr>
             ))}
-            {/* 합계 행 */}
             <tr style={{background:'#F5F6F4',borderTop:'1px solid rgba(0,0,0,0.1)'}}>
               <td style={{padding:'7px 8px',textAlign:'center',fontWeight:700,color:'#1a1a18'}}>합계</td>
               {SECTIONS.map(s=>{
                 const tot = rows.reduce((a,r)=>a+r[s.key],0)
-                return (
-                  <td key={s.key} style={{padding:'7px 8px',textAlign:'right',fontWeight:600,color:s.color}}>
-                    {tot>0 ? tot.toLocaleString() : '—'}
-                  </td>
-                )
+                return <td key={s.key} style={{padding:'7px 8px',textAlign:'right',fontWeight:600,color:s.color}}>{tot>0?tot.toLocaleString():'—'}</td>
               })}
               <td style={{padding:'7px 8px',textAlign:'right',fontWeight:700,color:'#1a1a18'}}>{grandTotal.toLocaleString()}</td>
             </tr>
-            {/* 비율 행 */}
             <tr style={{background:'white'}}>
               <td style={{padding:'7px 8px',textAlign:'center',fontSize:10,color:'#888'}}>비율</td>
               {SECTIONS.map(s=>{
                 const tot = rows.reduce((a,r)=>a+r[s.key],0)
                 const ratio = grandTotal>0 ? Math.round(tot/grandTotal*100) : 0
-                return (
-                  <td key={s.key} style={{padding:'7px 8px',textAlign:'right',fontSize:11,color:s.color}}>
-                    {ratio>0 ? `${ratio}%` : '—'}
-                  </td>
-                )
+                return <td key={s.key} style={{padding:'7px 8px',textAlign:'right',fontSize:11,color:s.color}}>{ratio>0?`${ratio}%`:'—'}</td>
               })}
               <td style={{padding:'7px 8px',textAlign:'right',fontSize:11,fontWeight:600,color:'#888'}}>100%</td>
             </tr>
@@ -399,7 +372,6 @@ function MonthlyTable({ yearRecords, year, showWon }) {
         </table>
       </div>
 
-      {/* 구간별 비율 바 */}
       <div style={{marginTop:14,paddingTop:12,borderTop:'0.5px solid rgba(0,0,0,0.07)'}}>
         <div style={{fontSize:11,color:'#888',marginBottom:8}}>구간별 비율</div>
         <div style={{display:'flex',height:18,borderRadius:99,overflow:'hidden',gap:1}}>
@@ -430,54 +402,6 @@ function MonthlyTable({ yearRecords, year, showWon }) {
   )
 }
 
-// ── YearChart ─────────────────────────────────────────
-function YearChart({ yearRecords, year, showWon }) {
-  const key = showWon ? 'amount_won' : 'amount_kg'
-  const unit = showWon ? '원' : 'kg'
-  const monthTotals = Array.from({length:12},(_,i)=>{
-    const m=i+1; const recs=yearRecords.filter(r=>r.month===m)
-    return recs.reduce((a,r)=>a+Number(r[key]||0),0)
-  })
-  const maxVal = Math.max(...monthTotals,1)
-  const grandTotal = yearRecords.reduce((a,r)=>a+Number(r[key]||0),0)
-
-  return (
-    <div style={{background:'white',border:'0.5px solid rgba(0,0,0,0.10)',borderRadius:10,padding:14,marginBottom:10}}>
-      <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{year}년 월별 사용량</div>
-      <div style={{display:'flex',alignItems:'flex-end',gap:4,height:80}}>
-        {monthTotals.map((val,i)=>(
-          <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <div style={{width:'100%',background:val?'#378ADD':'#F1EFE8',borderRadius:'3px 3px 0 0',height:`${val?Math.max(pct(val,maxVal),4):4}%`,minHeight:val?8:4,transition:'height 0.4s'}}/>
-            <span style={{fontSize:9,color:'#aaa'}}>{i+1}월</span>
-          </div>
-        ))}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6,marginTop:12}}>
-        {SECTIONS.map(s=>{
-          const tot = yearRecords.filter(r=>r.section===s.key).reduce((a,r)=>a+Number(r[key]||0),0)
-          const ratio = grandTotal>0?Math.round(tot/grandTotal*100):0
-          return (
-            <div key={s.key} style={{background:s.bg,borderRadius:8,padding:'8px 10px'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
-                <div style={{fontSize:10,color:s.color}}>{s.label}</div>
-                <div style={{fontSize:11,fontWeight:700,color:s.color}}>{ratio}%</div>
-              </div>
-              <div style={{fontSize:13,fontWeight:700,color:'#1a1a18'}}>{tot.toLocaleString()}<span style={{fontSize:10,fontWeight:400,color:'#888',marginLeft:2}}>{unit}</span></div>
-              <div style={{marginTop:5,background:'rgba(0,0,0,0.08)',borderRadius:99,height:4,overflow:'hidden'}}>
-                <div style={{width:`${ratio}%`,height:'100%',borderRadius:99,background:s.color,transition:'width 0.4s'}}/>
-              </div>
-            </div>
-          )
-        })}
-        <div style={{background:'#F1EFE8',borderRadius:8,padding:'8px 10px'}}>
-          <div style={{fontSize:10,color:'#888',marginBottom:2}}>전체 합계</div>
-          <div style={{fontSize:13,fontWeight:700,color:'#1a1a18'}}>{grandTotal.toLocaleString()}<span style={{fontSize:10,fontWeight:400,color:'#888',marginLeft:2}}>{unit}</span></div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Main ──────────────────────────────────────────────
 export default function FeedPage({ farmSlug, isAdmin }) {
   const slug = farmSlug || 'admin'
@@ -485,27 +409,22 @@ export default function FeedPage({ farmSlug, isAdmin }) {
   const [year,     setYear]     = useState(NOW.getFullYear())
   const [month,    setMonth]    = useState(NOW.getMonth()+1)
   const [records,  setRecords]  = useState([])
-  const [prevRecs, setPrevRecs] = useState([])
   const [yearRecs, setYearRecs] = useState([])
   const [loading,  setLoading]  = useState(false)
   const [showWon,  setShowWon]  = useState(false)
-  const [mapping,  setMapping]  = useState(null) // 거래원장 매핑 결과
+  const [mapping,  setMapping]  = useState(null)
   const fileRef = useRef(null)
 
   useEffect(()=>{ load() },[slug,year,month,viewMode])
 
   async function load() {
     setLoading(true)
+    // 연간 데이터는 항상 로딩 (월별 표에 사용)
+    const { data:yr } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',year)
+    setYearRecs(yr||[])
     if (viewMode==='monthly') {
       const { data:cur } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',year).eq('month',month)
-      const prevMonth = month===1?12:month-1
-      const prevYear  = month===1?year-1:year
-      const { data:prev } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',prevYear).eq('month',prevMonth)
       setRecords(cur||[])
-      setPrevRecs(prev||[])
-    } else {
-      const { data:yr } = await supabase.from('feed_records').select('*').eq('farm_slug',slug).eq('year',year)
-      setYearRecs(yr||[])
     }
     setLoading(false)
   }
@@ -524,7 +443,6 @@ export default function FeedPage({ farmSlug, isAdmin }) {
 
   return (
     <div style={{padding:'0 0 2rem'}}>
-      {/* 매핑 모달 */}
       {mapping && (
         <MappingModal
           result={mapping}
@@ -556,7 +474,6 @@ export default function FeedPage({ farmSlug, isAdmin }) {
               {MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
             </select>
           )}
-          {/* kg/금액 토글 */}
           <div style={{display:'flex',border:'0.5px solid rgba(0,0,0,0.12)',borderRadius:7,overflow:'hidden',marginLeft:'auto'}}>
             {[['kg','kg'],['won','금액']].map(([k,l])=>(
               <button key={k} onClick={()=>setShowWon(k==='won')}
@@ -570,7 +487,6 @@ export default function FeedPage({ farmSlug, isAdmin }) {
           {loading && <span style={{fontSize:12,color:'#aaa'}}>불러오는 중...</span>}
         </div>
 
-        {/* 거래원장 업로드 + 데이터 삭제 (관리자만) */}
         {isAdmin && (
           <div style={{marginTop:10,paddingTop:10,borderTop:'0.5px solid rgba(0,0,0,0.07)',display:'flex',gap:8,flexWrap:'wrap'}}>
             <label style={{flex:1}}>
@@ -604,7 +520,6 @@ export default function FeedPage({ farmSlug, isAdmin }) {
               farmSlug={slug} showWon={showWon}/>
           ))}
 
-          {/* 전체 합계 */}
           {(grandTotalKg>0||grandTotalWon>0) && (
             <div style={{background:'#0F2A1E',color:'white',borderRadius:10,padding:'12px 16px',marginBottom:10}}>
               <div style={{fontSize:11,color:'rgba(255,255,255,0.5)',marginBottom:6}}>전체 합계</div>
@@ -614,7 +529,6 @@ export default function FeedPage({ farmSlug, isAdmin }) {
               </div>
             </div>
           )}
-
           <MonthlyTable yearRecords={yearRecs} year={year} showWon={showWon}/>
         </>
       ) : (
