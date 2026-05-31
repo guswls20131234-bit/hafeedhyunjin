@@ -12,7 +12,7 @@ const DEAD_FIELDS = [
 ]
 
 const EMPTY = {
-  sows:0, mating:0, farrowing:0, born:0, weaning:0, weaned:0,
+  sows:0, mating:0, farrowing:0, born:0, total_born:0, piglet_death:0, weaning:0, weaned:0,
   diag_total:0, diag_preg:0, diag_open:0,
   dead_nursing:0, dead_early:0, dead_grower:0, dead_finisher:0,
 }
@@ -235,6 +235,8 @@ export default function ProductionPage({ farmSlug }) {
       mating:       rec.mating||0,
       farrowing:    rec.farrowing||0,
       born:         rec.born||0,
+      total_born:   rec.total_born||0,
+      piglet_death: rec.piglet_death||0,
       weaning:      rec.weaning||0,
       weaned:       rec.weaned||0,
       diag_total:   rec.diag_total||0,
@@ -272,6 +274,8 @@ export default function ProductionPage({ farmSlug }) {
       mating:        Number(vals.mating)||0,
       farrowing:     Number(vals.farrowing)||0,
       born:          Number(vals.born)||0,
+      total_born:    Number(vals.total_born)||0,
+      piglet_death:  Number(vals.piglet_death)||0,
       weaning:       Number(vals.weaning)||0,
       weaned:        Number(vals.weaned)||0,
       diag_total:    Number(vals.diag_total)||0,
@@ -372,8 +376,10 @@ export default function ProductionPage({ farmSlug }) {
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
           {[
             {key:'mating',    label:'종부복수', unit:'복', color:'#378ADD', full:true},
-            {key:'farrowing', label:'분만복수', unit:'복', color:'#1D9E75'},
-            {key:'born',      label:'산자수',   unit:'두', color:'#1D9E75'},
+            {key:'farrowing',    label:'분만복수', unit:'복', color:'#1D9E75'},
+            {key:'total_born',   label:'총산자수', unit:'두', color:'#1D9E75'},
+            {key:'piglet_death', label:'자돈폐사', unit:'두', color:'#C0392B'},
+            {key:'born',         label:'산자수(이유전)', unit:'두', color:'#1D9E75'},
             {key:'weaning',   label:'이유복수', unit:'복', color:'#BA7517'},
             {key:'weaned',    label:'이유두수', unit:'두', color:'#BA7517'},
           ].map(({key,label,unit,color,full})=>(
@@ -449,16 +455,16 @@ export default function ProductionPage({ farmSlug }) {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:560}}>
               <thead>
                 <tr style={{background:'#F5F6F4'}}>
-                  {['월','모돈','종부','분만','산자','이유복','이유두','복당산자','복당이유','PSY','수태율'].map(h=>(
+                  {['월','모돈','종부','분만','산자','자돈폐사','실산','이유복','이유두','복당산자','복당이유','수태율'].map(h=>(
                     <th key={h} style={{padding:'6px 6px',textAlign:'center',fontWeight:500,color:'#6b6b68',borderBottom:'0.5px solid rgba(0,0,0,0.08)',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {records.map((r,i)=>{
-                  const b  = r.farrowing>0?(r.born/r.farrowing).toFixed(1):'—'
+                  const realBorn = (r.total_born||0)>0 ? (r.total_born||0)-(r.piglet_death||0) : '—'
+                  const b  = r.farrowing>0&&(r.total_born||0)>0 ? (((r.total_born||0)-(r.piglet_death||0))/r.farrowing).toFixed(1) : '—'
                   const w  = r.weaning>0?(r.weaned/r.weaning).toFixed(1):'—'
-                  const p  = r.sows>0?(r.weaned/r.sows*12).toFixed(1):'—'
                   const dr = r.diag_total>0&&r.diag_preg>0?((r.diag_preg/r.diag_total)*100).toFixed(1)+'%':'—'
                   const isCur = r.month===month
                   return (
@@ -468,12 +474,13 @@ export default function ProductionPage({ farmSlug }) {
                       <td style={{padding:'7px 6px',textAlign:'center',color:'#555'}}>{r.sows||'—'}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',color:'#378ADD'}}>{r.mating||'—'}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',color:'#1D9E75'}}>{r.farrowing||'—'}</td>
-                      <td style={{padding:'7px 6px',textAlign:'center'}}>{r.born||'—'}</td>
+                      <td style={{padding:'7px 6px',textAlign:'center'}}>{r.total_born||'—'}</td>
+                      <td style={{padding:'7px 6px',textAlign:'center',color:'#C0392B'}}>{r.piglet_death||'—'}</td>
+                      <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500,color:'#085041'}}>{realBorn}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',color:'#BA7517'}}>{r.weaning||'—'}</td>
                       <td style={{padding:'7px 6px',textAlign:'center'}}>{r.weaned||'—'}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500}}>{b}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500}}>{w}</td>
-                      <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#5B3FA6'}}>{p}</td>
                       <td style={{padding:'7px 6px',textAlign:'center',fontWeight:500,color:'#2563EB'}}>{dr}</td>
                     </tr>
                   )
@@ -486,12 +493,14 @@ export default function ProductionPage({ farmSlug }) {
                     <td style={{padding:'7px 6px',textAlign:'center',color:'#555'}}>{Math.round(records.reduce((a,r)=>a+(r.sows||0),0)/records.length)||'—'}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#378ADD'}}>{tot('mating')}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#1D9E75'}}>{tot('farrowing')}</td>
-                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600}}>{tot('born')}</td>
+                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600}}>{tot('total_born')||'—'}</td>
+                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#C0392B'}}>{tot('piglet_death')||'—'}</td>
+                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>
+                      {tot('farrowing')>0&&tot('total_born')>0 ? ((tot('total_born')-tot('piglet_death'))/tot('farrowing')).toFixed(1) : '—'}
+                    </td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600,color:'#BA7517'}}>{tot('weaning')}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:600}}>{tot('weaned')}</td>
-                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>{tot('farrowing')>0?(tot('born')/tot('farrowing')).toFixed(1):'—'}</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#085041'}}>{tot('weaning')>0?(tot('weaned')/tot('weaning')).toFixed(1):'—'}</td>
-                    <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#5B3FA6'}}>—</td>
                     <td style={{padding:'7px 6px',textAlign:'center',fontWeight:700,color:'#2563EB'}}>{tot('diag_total')>0?((tot('diag_preg')/tot('diag_total'))*100).toFixed(1)+'%':'—'}</td>
                   </tr>
                 </tfoot>
