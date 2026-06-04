@@ -8,18 +8,14 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
   :root{
-    --bg:#f4f6f3; --panel:#ffffff; --ink:#1d2b22; --muted:#74837a;
+    --bg:#f4f6f3; --panel:#fff; --ink:#1d2b22; --muted:#74837a;
     --line:#e3e8e2; --brand:#2f6f4f; --brand-d:#245840; --brand-l:#e7f1ea;
-    --accent:#c8842b; --danger:#b6453a; --shadow:0 1px 3px rgba(20,40,30,.06),0 6px 24px rgba(20,40,30,.05);
-    --radius:14px;
+    --accent:#c8842b; --danger:#b6453a; --shadow:0 1px 3px rgba(20,40,30,.06),0 6px 24px rgba(20,40,30,.05); --radius:14px;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Pretendard',system-ui,sans-serif;background:var(--bg);color:var(--ink);
-       -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
-  button{font-family:inherit;cursor:pointer}
-  input,select{font-family:inherit}
-  header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);
-         border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  body{margin:0;font-family:'Pretendard',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+  button{font-family:inherit;cursor:pointer} input,select{font-family:inherit}
+  header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.02em}
   .logo .mark{width:30px;height:30px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:16px}
   .spacer{flex:1}
@@ -29,62 +25,53 @@
   select:focus,.inp:focus{border-color:var(--brand)}
   .btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;font-weight:600;font-size:13px;color:var(--ink);transition:.15s}
   .btn:hover{border-color:var(--brand);color:var(--brand)}
-  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
-  .btn.primary:hover{background:var(--brand-d);color:#fff}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff} .btn.primary:hover{background:var(--brand-d);color:#fff}
   .btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
-  .btn.danger{color:var(--danger)}
   .icon{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;padding:0}
   nav{display:flex;gap:4px;padding:10px 22px 0;flex-wrap:wrap}
   .tab{padding:9px 15px;border-radius:10px 10px 0 0;font-weight:600;color:var(--muted);border:1px solid transparent;border-bottom:none;font-size:13.5px}
-  .tab:hover{color:var(--ink)}
-  .tab.active{background:var(--panel);color:var(--brand);border-color:var(--line)}
-  main{padding:18px 22px 60px;max-width:1180px;margin:0 auto}
+  .tab:hover{color:var(--ink)} .tab.active{background:var(--panel);color:var(--brand);border-color:var(--line)}
+  main{padding:18px 22px 60px;max-width:1300px;margin:0 auto}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .card .hd{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-  .card .hd h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em}
-  .card .hd .sub{color:var(--muted);font-size:12px;font-weight:500}
-  .card .bd{padding:18px}
-  .grid{display:grid;gap:14px 18px}
-  .field{display:flex;flex-direction:column;gap:5px}
-  .field label{font-size:12px;color:var(--muted);font-weight:600}
-  .field input{width:100%;text-align:right}
-  .field input.text{text-align:left}
-  .grp-title{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.04em;
-             margin-top:6px;padding-bottom:4px;border-bottom:1px dashed var(--line)}
-  .formfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:18px}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 17px;box-shadow:var(--shadow)}
+  .card .hd{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .card .hd h2{margin:0;font-size:15px;font-weight:700} .card .hd .sub{color:var(--muted);font-size:12px}
+  .card .bd{padding:0}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow)}
   .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
-  .kpi .v{font-size:24px;font-weight:800;margin-top:6px;letter-spacing:-.02em}
-  .kpi .v small{font-size:13px;font-weight:600;color:var(--muted)}
+  .kpi .v{font-size:22px;font-weight:800;margin-top:5px;letter-spacing:-.02em}
+  .kpi .v small{font-size:12px;font-weight:600;color:var(--muted)}
   .kpi.brand{background:linear-gradient(135deg,var(--brand),var(--brand-d));border-color:var(--brand);color:#fff}
   .kpi.brand .k{color:rgba(255,255,255,.8)} .kpi.brand .v small{color:rgba(255,255,255,.7)}
+  .tablewrap{overflow:auto;max-height:620px;border-radius:0 0 var(--radius) var(--radius)}
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-  th:first-child,td:first-child{text-align:left}
-  th{color:var(--muted);font-weight:600;font-size:11.5px;background:#fafbfa;position:sticky;top:0}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:center}
+  thead th{color:var(--muted);font-weight:700;font-size:11.5px;background:#f1f4f1;position:sticky;top:0;z-index:2}
   tbody tr:hover{background:var(--brand-l)}
-  .tablewrap{overflow:auto;max-height:520px;border-radius:0 0 var(--radius) var(--radius)}
-  .empty{text-align:center;color:var(--muted);padding:50px 20px}
-  .empty .big{font-size:34px;margin-bottom:10px}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
-         padding:12px 20px;border-radius:11px;font-weight:600;font-size:13px;opacity:0;transition:.25s;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.25)}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.err{background:var(--danger)}
+  td.mcol{font-weight:700;color:var(--brand-d);background:#fafbfa;position:sticky;left:0;z-index:1}
+  th:first-child{position:sticky;left:0;z-index:3}
+  tr.tot td{font-weight:800;background:#eef3ee;border-top:2px solid var(--brand);color:var(--brand-d)}
+  tr.tot td.mcol{background:#eef3ee}
+  .cell{width:74px;border:1px solid transparent;background:transparent;border-radius:7px;padding:5px 7px;text-align:right;font-size:13px;color:var(--ink)}
+  .cell:hover{border-color:var(--line)} .cell:focus{border-color:var(--brand);background:#fff;outline:none}
+  .gridfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .empty{text-align:center;color:var(--muted);padding:50px 20px} .empty .big{font-size:34px;margin-bottom:10px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:11px;font-weight:600;font-size:13px;opacity:0;transition:.25s;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)} .toast.err{background:var(--danger)}
   .overlay{position:fixed;inset:0;background:rgba(20,30,25,.45);backdrop-filter:blur(3px);display:none;place-items:center;z-index:50;padding:20px}
   .overlay.show{display:grid}
   .modal{background:var(--panel);border-radius:18px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
   .modal .hd{padding:18px 22px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px}
-  .modal .bd{padding:22px}
-  .modal .bd .field{margin-bottom:14px}
-  .modal .bd .field input{text-align:left}
+  .modal .bd2{padding:22px} .modal .bd2 .field{margin-bottom:14px}
+  .field{display:flex;flex-direction:column;gap:5px} .field label{font-size:12px;color:var(--muted);font-weight:600}
+  .field input,.field select{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:14px}
   .modal .ft{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
   .hint{font-size:12px;color:var(--muted);line-height:1.6}
-  .row-add{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:14px;background:#fafbfa;border:1px solid var(--line);border-radius:12px}
-  .row-add .field{min-width:110px}
+  .row-add{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:16px 18px;padding:14px;background:#fafbfa;border:1px solid var(--line);border-radius:12px}
+  .row-add .field{min-width:104px} .row-add .field input{text-align:right} .row-add .field input[type=date]{text-align:left}
   .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--brand-l);color:var(--brand-d)}
-  .badge.off{background:#fbeee0;color:var(--accent)}
-  .del{color:var(--danger);background:none;border:none;font-weight:700;font-size:13px}
+  .badge.off{background:#fbeee0;color:var(--accent)} .del{color:var(--danger);background:none;border:none;font-weight:700;font-size:13px}
   @media(max-width:640px){ main{padding:14px} header{padding:10px 14px} nav{padding:8px 14px 0} }
 </style>
 </head>
@@ -93,86 +80,59 @@
 <header>
   <div class="logo"><div class="mark">🐖</div><span>양돈 거래처 관리</span></div>
   <div class="spacer"></div>
-  <div class="ctl">
-    <label>거래처</label>
-    <select id="farmSel" style="min-width:160px"></select>
-    <button class="btn" id="addFarmBtn">+ 농장</button>
-  </div>
-  <div class="ctl">
-    <label>기준월</label>
-    <input class="inp" type="month" id="ymSel" style="width:150px">
-  </div>
+  <div class="ctl"><label>거래처</label><select id="farmSel" style="min-width:150px"></select><button class="btn" id="addFarmBtn">+ 농장</button></div>
+  <div class="ctl"><label>연도</label><select id="yearSel" style="width:100px"></select></div>
   <button class="btn icon" id="cfgBtn" title="Supabase 설정">⚙️</button>
 </header>
 
 <nav id="tabs"></nav>
 <main id="view"></main>
 
-<div class="overlay" id="farmModal">
-  <div class="modal">
-    <div class="hd">거래처(농장) 추가</div>
-    <div class="bd">
-      <div class="field"><label>농장명 *</label><input class="inp" id="fName" placeholder="예) 돌고지 농장"></div>
-      <div class="field"><label>대표자</label><input class="inp" id="fOwner"></div>
-      <div class="field"><label>연락처</label><input class="inp" id="fPhone"></div>
-      <div class="field"><label>메모</label><input class="inp" id="fNote"></div>
-    </div>
-    <div class="ft">
-      <button class="btn ghost" onclick="closeModal('farmModal')">취소</button>
-      <button class="btn primary" id="saveFarmBtn">저장</button>
-    </div>
+<div class="overlay" id="farmModal"><div class="modal">
+  <div class="hd">거래처(농장) 추가</div>
+  <div class="bd2">
+    <div class="field"><label>농장명 *</label><input class="inp" id="fName" placeholder="예) 돌고지 농장"></div>
+    <div class="field"><label>대표자</label><input class="inp" id="fOwner"></div>
+    <div class="field"><label>연락처</label><input class="inp" id="fPhone"></div>
+    <div class="field"><label>메모</label><input class="inp" id="fNote"></div>
   </div>
-</div>
+  <div class="ft"><button class="btn ghost" onclick="closeModal('farmModal')">취소</button><button class="btn primary" id="saveFarmBtn">저장</button></div>
+</div></div>
 
-<div class="overlay" id="cfgModal">
-  <div class="modal">
-    <div class="hd">Supabase 연결 설정</div>
-    <div class="bd">
-      <div class="field"><label>Project URL</label><input class="inp" id="cfgUrl" placeholder="https://xxxx.supabase.co"></div>
-      <div class="field"><label>anon public key</label><input class="inp" id="cfgKey" placeholder="eyJhbGci..."></div>
-      <p class="hint">사이트에서 쓰는 그 프로젝트의 URL과 anon key를 그대로 입력하세요.
-      이 도구는 <b>mgmt_</b> 로 시작하는 별도 테이블만 사용하므로 기존 데이터에 영향이 없습니다.
-      입력값은 이 브라우저에만 저장됩니다.</p>
-    </div>
-    <div class="ft">
-      <button class="btn ghost" onclick="closeModal('cfgModal')">닫기</button>
-      <button class="btn primary" id="saveCfgBtn">저장 후 연결</button>
-    </div>
+<div class="overlay" id="cfgModal"><div class="modal">
+  <div class="hd">Supabase 연결 설정</div>
+  <div class="bd2">
+    <div class="field"><label>Project URL</label><input class="inp" id="cfgUrl" placeholder="https://xxxx.supabase.co"></div>
+    <div class="field"><label>anon public key</label><input class="inp" id="cfgKey" placeholder="eyJhbGci..."></div>
+    <p class="hint">사이트에서 쓰는 그 프로젝트의 URL과 anon key를 그대로 입력하세요. 이 도구는 <b>mgmt_</b> 테이블만 사용하므로 기존 데이터에 영향이 없습니다. 입력값은 이 브라우저에만 저장됩니다.</p>
   </div>
-</div>
+  <div class="ft"><button class="btn ghost" onclick="closeModal('cfgModal')">닫기</button><button class="btn primary" id="saveCfgBtn">저장 후 연결</button></div>
+</div></div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-/* ---------- 테이블 이름 (mgmt_ 접두사로 기존 사이트와 분리) ---------- */
-const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',
-         feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses'};
-
-/* ---------- 설정 / 클라이언트 ---------- */
+const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses'};
 const LS='pigfarm_cfg';
 let sb=null, cfg={url:'',key:''};
 try{ cfg=JSON.parse(localStorage.getItem(LS))||cfg; }catch(e){}
-function initClient(){
-  if(cfg.url && cfg.key && window.supabase){ sb=window.supabase.createClient(cfg.url,cfg.key); return true; }
-  return false;
-}
-function toast(msg,err){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast show'+(err?' err':'');
-  setTimeout(()=>t.className='toast',2200);
-}
+function initClient(){ if(cfg.url&&cfg.key&&window.supabase){sb=window.supabase.createClient(cfg.url,cfg.key);return true;} return false; }
+function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2200);}
 
-/* ---------- 상태 ---------- */
-const state={farms:[],farmId:null,ym:'',tab:'dash'};
+const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash'};
 const TABS=[['dash','대시보드'],['head','상시두수'],['breed','번식성적'],['feed','사료'],['ship','출하'],['exp','운영경비']];
+const MONTHS=[1,2,3,4,5,6,7,8,9,10,11,12];
 const fmt=n=>n==null||n===''||isNaN(n)?'-':Math.round(n).toLocaleString('ko-KR');
 const fmt1=n=>n==null||isNaN(n)?'-':Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1,minimumFractionDigits:1});
 const num=v=>{const x=parseFloat(String(v).replace(/,/g,''));return isNaN(x)?0:x;};
+const ym=m=>`${state.year}-${String(m).padStart(2,'0')}`;
 
 async function boot(){
   renderTabs();
-  document.getElementById('ymSel').value=state.ym=new Date().toISOString().slice(0,7);
-  if(!initClient()){ openModal('cfgModal'); render(); return; }
+  const y=new Date().getFullYear(), ys=document.getElementById('yearSel');
+  for(let v=y+1;v>=y-5;v--) ys.insertAdjacentHTML('beforeend',`<option value="${v}" ${v===y?'selected':''}>${v}년</option>`);
+  ys.onchange=e=>{state.year=+e.target.value;render();};
+  if(!initClient()){openModal('cfgModal');render();return;}
   await loadFarms();
 }
 async function loadFarms(){
@@ -181,231 +141,145 @@ async function loadFarms(){
   state.farms=data||[];
   const sel=document.getElementById('farmSel');
   sel.innerHTML=state.farms.map(f=>`<option value="${f.id}">${f.name}</option>`).join('')||'<option value="">농장 없음</option>';
-  if(state.farms.length){ state.farmId=state.farms.find(f=>f.id===state.farmId)?state.farmId:state.farms[0].id; sel.value=state.farmId; }
+  if(state.farms.length){state.farmId=state.farms.find(f=>f.id===state.farmId)?state.farmId:state.farms[0].id;sel.value=state.farmId;}
   else state.farmId=null;
   render();
 }
-
-function renderTabs(){
-  document.getElementById('tabs').innerHTML=TABS.map(([k,l])=>
-    `<button class="tab ${state.tab===k?'active':''}" data-tab="${k}">${l}</button>`).join('');
-}
+function renderTabs(){document.getElementById('tabs').innerHTML=TABS.map(([k,l])=>`<button class="tab ${state.tab===k?'active':''}" data-tab="${k}">${l}</button>`).join('');}
 document.getElementById('tabs').onclick=e=>{const t=e.target.closest('.tab');if(!t)return;state.tab=t.dataset.tab;renderTabs();render();};
 document.getElementById('farmSel').onchange=e=>{state.farmId=e.target.value;render();};
-document.getElementById('ymSel').onchange=e=>{state.ym=e.target.value;render();};
 
 function render(){
   const v=document.getElementById('view');
-  if(!sb){ v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔌</div>
-      Supabase에 아직 연결되지 않았습니다.<br>우측 상단 ⚙️ 에서 URL과 anon key를 입력하세요.</div></div></div>`; return; }
-  if(!state.farmId){ v.innerHTML=`<div class="card"><div class="bd"><div class="empty">
-      <div class="big">🏡</div>등록된 거래처(농장)가 없습니다.<br>우측 상단 <b>+ 농장</b> 으로 추가하세요.</div></div></div>`; return; }
-  ({dash:viewDash,head:viewHead,breed:viewBreed,feed:viewFeed,ship:viewShip,exp:viewExp})[state.tab]();
+  if(!sb){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔌</div>Supabase에 아직 연결되지 않았습니다.<br>우측 상단 ⚙️ 에서 URL과 anon key를 입력하세요.</div></div></div>`;return;}
+  if(!state.farmId){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🏡</div>등록된 거래처(농장)가 없습니다.<br>우측 상단 <b>+ 농장</b> 으로 추가하세요.</div></div></div>`;return;}
+  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:()=>viewGrid('feed'),ship:viewShip,exp:()=>viewGrid('exp')})[state.tab]();
 }
-function card(title,sub,body){return `<div class="card"><div class="hd"><h2>${title}</h2>${sub?`<span class="sub">${sub}</span>`:''}</div><div class="bd">${body}</div></div>`;}
 function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div class="k">${k}</div><div class="v">${v} <small>${unit||''}</small></div></div>`;}
 
-/* ---------- 월별 단일행 공통 ---------- */
-async function getRow(table){
-  const {data}=await sb.from(table).select('*').eq('farm_id',state.farmId).eq('ym',state.ym).maybeSingle();
-  return data||{};
-}
-async function upsertRow(table,obj){
-  const {error}=await sb.from(table).upsert({...obj,farm_id:state.farmId,ym:state.ym},{onConflict:'farm_id,ym'});
-  if(error){toast('저장 실패: '+error.message,true);return false;}
-  toast('저장되었습니다');return true;
-}
-function fieldsHtml(defs,row){
-  return defs.map(d=>{
-    if(d.group)return `<div class="grp-title">${d.group}</div>`;
-    const val=row[d.k]!=null?row[d.k]:'';
-    return `<div class="field"><label>${d.l}${d.u?` <span style="color:var(--muted)">(${d.u})</span>`:''}</label>
-            <input class="inp" data-k="${d.k}" value="${val}" inputmode="numeric"></div>`;
+/* ---------- 월별 그리드 정의 ---------- */
+const DEF={
+  head:{table:T.head,title:'상시두수',cols:[
+    {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'boar',l:'웅돈'},{k:'gilt',l:'후보돈'},
+    {k:'suckling',l:'포유자돈'},{k:'weaned',l:'이유자돈'},{k:'growing',l:'육성돈'},{k:'finishing',l:'비육돈'}]},
+  breed:{table:T.breed,title:'번식성적',cols:[
+    {k:'mating',l:'종부두수'},{k:'farrowing',l:'분만복수'},{k:'born_total',l:'총산자수'},{k:'piglet_death',l:'자돈도폐'},
+    {k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},{k:'weaning_age',l:'이유일령'}]},
+  feed:{table:T.feed,title:'사료 소모량 (kg)',cols:[
+    {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'gilt',l:'후보돈'},{k:'f1',l:'1호'},{k:'f2',l:'2호'},{k:'f3',l:'3호'},
+    {k:'fchange',l:'체인지'},{k:'suckle',l:'젖먹이'},{k:'grow',l:'육성'},{k:'finish',l:'비육'},{k:'feed_cost',l:'사료비(원)'}]},
+  exp:{table:T.exp,title:'운영경비 (원)',cols:[
+    {k:'labor',l:'인건비'},{k:'living',l:'생활비'},{k:'loan_repay',l:'대여금상환'},{k:'breeding_stock',l:'종돈구입비'},
+    {k:'feed_payment',l:'사료대금'},{k:'semen',l:'정액비용'},{k:'manure',l:'분뇨처리비'},{k:'modern_interest',l:'현대화원리금'},
+    {k:'medicine',l:'약품방역비'},{k:'repair',l:'수리유지비'},{k:'tax',l:'제세공과금'},{k:'utility',l:'전화전기수도광열'},
+    {k:'savings',l:'적금'},{k:'vehicle',l:'차량+운임'},{k:'insurance',l:'보험금'},{k:'interest',l:'이자'}]}
+};
+
+async function viewGrid(key){
+  const d=DEF[key];
+  const {data}=await sb.from(d.table).select('*').eq('farm_id',state.farmId).like('ym',`${state.year}-%`);
+  const byM={}; (data||[]).forEach(r=>byM[+r.ym.slice(5,7)]=r);
+  const head=`<th>월</th>`+d.cols.map(c=>`<th>${c.l}</th>`).join('');
+  const body=MONTHS.map(m=>{
+    const r=byM[m]||{};
+    return `<tr><td class="mcol">${m}월</td>`+d.cols.map(c=>
+      `<td><input class="cell" data-m="${m}" data-k="${c.k}" value="${r[c.k]!=null?r[c.k]:''}" inputmode="numeric"></td>`).join('')+`</tr>`;
   }).join('');
-}
-function collect(form,defs){const o={};defs.forEach(d=>{if(d.group)return;o[d.k]=num(form.querySelector(`[data-k="${d.k}"]`).value);});return o;}
-function bindSave(table,defs){
-  document.getElementById('save').onclick=async()=>{ if(await upsertRow(table,collect(document.getElementById('f'),defs))) render(); };
-}
-
-/* ---------- 상시두수 ---------- */
-const HEAD=[
-  {group:'번식돈'},{k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'boar',l:'웅돈'},{k:'gilt',l:'후보돈'},
-  {group:'비육돈'},{k:'suckling',l:'포유자돈'},{k:'weaned',l:'이유자돈'},{k:'growing',l:'육성돈'},{k:'finishing',l:'비육돈'}];
-async function viewHead(){
-  const r=await getRow(T.head);
-  const sows=num(r.preg)+num(r.lactating);
-  const total=sows+num(r.boar)+num(r.gilt)+num(r.suckling)+num(r.weaned)+num(r.growing)+num(r.finishing);
-  document.getElementById('view').innerHTML=card('상시두수',state.ym,
-    `<div class="kpis">
-       ${kpi('상시 모돈',fmt(sows),'두')}
-       ${kpi('번식돈계',fmt(sows+num(r.boar)+num(r.gilt)),'두')}
-       ${kpi('비육돈계',fmt(num(r.suckling)+num(r.weaned)+num(r.growing)+num(r.finishing)),'두')}
-       ${kpi('총계',fmt(total),'두',true)}
-     </div>
-     <form id="f" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">${fieldsHtml(HEAD,r)}</form>
-     <div class="formfoot"><button class="btn primary" id="save">저장</button></div>`);
-  bindSave(T.head,HEAD);
+  const tot=`<tr class="tot"><td class="mcol">합계</td>`+d.cols.map(c=>`<td data-tot="${c.k}">-</td>`).join('')+`</tr>`;
+  document.getElementById('view').innerHTML=`<div class="card">
+    <div class="hd"><h2>${d.title}</h2><span class="sub">${state.year}년 · 표에 바로 입력하고 저장하세요</span></div>
+    <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead><tbody>${body}${tot}</tbody></table></div>
+    <div class="gridfoot"><span class="hint">빈 칸은 0으로 저장됩니다. 값이 하나도 없는 달은 저장하지 않습니다.</span>
+      <button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>`;
+  const recompute=()=>d.cols.forEach(c=>{
+    let s=0; document.querySelectorAll(`#grid .cell[data-k="${c.k}"]`).forEach(i=>s+=num(i.value));
+    document.querySelector(`#grid [data-tot="${c.k}"]`).textContent=fmt(s);
+  });
+  document.getElementById('grid').addEventListener('input',recompute); recompute();
+  document.getElementById('saveGrid').onclick=async()=>{
+    const byMonth={};
+    document.querySelectorAll('#grid .cell').forEach(i=>{(byMonth[i.dataset.m]=byMonth[i.dataset.m]||{})[i.dataset.k]=num(i.value);});
+    const ups=[];
+    Object.entries(byMonth).forEach(([m,o])=>{ if(Object.values(o).some(v=>v!==0)) ups.push({...o,farm_id:state.farmId,ym:ym(+m)}); });
+    if(!ups.length){toast('입력된 값이 없습니다');return;}
+    const {error}=await sb.from(d.table).upsert(ups,{onConflict:'farm_id,ym'});
+    if(error){toast('저장 실패: '+error.message,true);return;}
+    toast(`${ups.length}개월 저장되었습니다`);
+  };
 }
 
-/* ---------- 번식성적 ---------- */
-const BREED=[
-  {k:'mating',l:'종부두수'},{k:'farrowing',l:'분만복수'},{k:'born_total',l:'총산자수'},{k:'piglet_death',l:'자돈도폐'},
-  {k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},{k:'weaning_age',l:'이유일령'}];
-async function viewBreed(){
-  const r=await getRow(T.breed), h=await getRow(T.head);
-  const avgBorn=num(r.farrowing)?num(r.born_total)/num(r.farrowing):0;
-  const avgWean=num(r.weaning_litters)?num(r.weaned_total)/num(r.weaning_litters):0;
-  const sows=num(h.preg)+num(h.lactating);
-  const psy=sows?(num(r.weaned_total)/sows)*12:0;
-  document.getElementById('view').innerHTML=card('번식성적',state.ym,
-    `<div class="kpis">
-       ${kpi('평균 산자수',fmt1(avgBorn),'두/복')}
-       ${kpi('평균 이유두수',fmt1(avgWean),'두/복')}
-       ${kpi('PSY(추정)',fmt1(psy),'두',true)}
-     </div>
-     <form id="f" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${fieldsHtml(BREED,r)}</form>
-     <div class="formfoot"><button class="btn primary" id="save">저장</button></div>`);
-  bindSave(T.breed,BREED);
-}
-
-/* ---------- 사료 ---------- */
-const FEED=[
-  {group:'번식돈 (kg)'},{k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'gilt',l:'후보돈'},
-  {group:'비육돈 (kg)'},{k:'f1',l:'1호'},{k:'f2',l:'2호'},{k:'f3',l:'3호'},{k:'fchange',l:'체인지'},{k:'suckle',l:'젖먹이'},{k:'grow',l:'육성'},{k:'finish',l:'비육'},
-  {group:'비용'},{k:'feed_cost',l:'총 사료비',u:'원'}];
-async function viewFeed(){
-  const r=await getRow(T.feed);
-  const ks=['preg','lactating','gilt','f1','f2','f3','fchange','suckle','grow','finish'];
-  const totalKg=ks.reduce((s,k)=>s+num(r[k]),0);
-  const perKg=totalKg?num(r.feed_cost)/totalKg:0;
-  document.getElementById('view').innerHTML=card('사료 소모량',state.ym,
-    `<div class="kpis">
-       ${kpi('총 사료량',fmt(totalKg),'kg')}
-       ${kpi('총 사료비',fmt(r.feed_cost),'원')}
-       ${kpi('kg당 단가',fmt(perKg),'원/kg',true)}
-     </div>
-     <form id="f" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">${fieldsHtml(FEED,r)}</form>
-     <div class="formfoot"><button class="btn primary" id="save">저장</button></div>`);
-  bindSave(T.feed,FEED);
-}
-
-/* ---------- 운영경비 ---------- */
-const EXP=[
-  {k:'labor',l:'인건비'},{k:'living',l:'생활비'},{k:'loan_repay',l:'대여금 상환'},{k:'breeding_stock',l:'종돈구입비'},
-  {k:'feed_payment',l:'사료대금'},{k:'semen',l:'정액비용'},{k:'manure',l:'분뇨처리비'},{k:'modern_interest',l:'현대화 원리금'},
-  {k:'medicine',l:'약품방역비'},{k:'repair',l:'수리유지비'},{k:'tax',l:'제세공과금'},{k:'utility',l:'전화전기수도광열'},
-  {k:'savings',l:'적금'},{k:'vehicle',l:'차량유지비+운임'},{k:'insurance',l:'보험금'},{k:'interest',l:'이자'}];
-async function viewExp(){
-  const r=await getRow(T.exp);
-  const total=EXP.reduce((s,d)=>s+num(r[d.k]),0);
-  document.getElementById('view').innerHTML=card('운영경비',state.ym,
-    `<div class="kpis">${kpi('운영경비 합계',fmt(total),'원',true)}</div>
-     <form id="f" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${fieldsHtml(EXP,r)}</form>
-     <div class="formfoot"><button class="btn primary" id="save">저장</button></div>`);
-  bindSave(T.exp,EXP);
-}
-
-/* ---------- 출하현황 ---------- */
+/* ---------- 출하 (연간) ---------- */
 async function viewShip(){
-  const {data}=await sb.from(T.ship).select('*').eq('farm_id',state.farmId).order('ship_date',{ascending:false});
+  const y=state.year;
+  const {data}=await sb.from(T.ship).select('*').eq('farm_id',state.farmId)
+    .gte('ship_date',`${y}-01-01`).lte('ship_date',`${y}-12-31`).order('ship_date');
   const rows=data||[];
-  const mr=rows.filter(r=>(r.ship_date||'').slice(0,7)===state.ym);
-  const sumHead=mr.reduce((s,r)=>s+num(r.head),0), sumKg=mr.reduce((s,r)=>s+num(r.total_kg),0), sumAmt=mr.reduce((s,r)=>s+num(r.amount),0);
-  const avgW=sumHead?sumKg/sumHead:0, perKg=sumKg?sumAmt/sumKg:0;
-  document.getElementById('view').innerHTML=card('출하현황',`전체 기록 · 이번달(${state.ym}) 합계 표시`,
-    `<div class="kpis">
-       ${kpi('출하두수',fmt(sumHead),'두')}
-       ${kpi('평균체중',fmt1(avgW),'kg')}
-       ${kpi('kg당 단가',fmt(perKg),'원/kg')}
-       ${kpi('출하금액',fmt(sumAmt),'원',true)}
-     </div>
-     <div class="row-add">
-       <div class="field"><label>일자</label><input class="inp" id="s_date" type="date" value="${state.ym}-01"></div>
-       <div class="field"><label>두수</label><input class="inp" id="s_head" inputmode="numeric"></div>
-       <div class="field"><label>총kg</label><input class="inp" id="s_kg" inputmode="numeric"></div>
-       <div class="field"><label>금액(원)</label><input class="inp" id="s_amt" inputmode="numeric"></div>
-       <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
-       <div class="field"><label>구분</label><select id="s_off"><option value="false">규격</option><option value="true">비규격</option></select></div>
-       <button class="btn primary" id="addShip">+ 추가</button>
-     </div>
-     <div class="tablewrap"><table><thead><tr>
-       <th>일자</th><th>구분</th><th>두수</th><th>총kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국시세</th><th></th>
-     </tr></thead><tbody>${rows.map(r=>{
-       const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0, pw=num(r.head)?num(r.total_kg)/num(r.head):0;
-       return `<tr><td>${r.ship_date||''}</td>
-         <td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
-         <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td>
-         <td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
-         <td><button class="del" data-del="${r.id}">삭제</button></td></tr>`;
-     }).join('')||`<tr><td colspan="9" class="empty">출하 기록이 없습니다.</td></tr>`}</tbody></table></div>`);
-
+  const mAgg={}; MONTHS.forEach(m=>mAgg[m]={head:0,kg:0,amt:0});
+  rows.forEach(r=>{const m=+(r.ship_date||'').slice(5,7);if(mAgg[m]){mAgg[m].head+=num(r.head);mAgg[m].kg+=num(r.total_kg);mAgg[m].amt+=num(r.amount);}});
+  const tH=rows.reduce((s,r)=>s+num(r.head),0),tK=rows.reduce((s,r)=>s+num(r.total_kg),0),tA=rows.reduce((s,r)=>s+num(r.amount),0);
+  const monthTable=MONTHS.map(m=>{const a=mAgg[m];const pw=a.head?a.kg/a.head:0,pk=a.kg?a.amt/a.kg:0;
+    return `<tr><td class="mcol">${m}월</td><td>${fmt(a.head)}</td><td>${fmt(a.kg)}</td><td>${fmt1(pw)}</td><td>${fmt(a.amt)}</td><td>${fmt(pk)}</td></tr>`;}).join('');
+  document.getElementById('view').innerHTML=`
+    <div class="kpis">${kpi('연간 출하두수',fmt(tH),'두')}${kpi('연간 출하체중',fmt(tK),'kg')}${kpi('평균 체중',fmt1(tH?tK/tH:0),'kg')}${kpi('연간 출하금액',fmt(tA),'원',true)}</div>
+    <div class="card"><div class="hd"><h2>월별 출하 집계</h2><span class="sub">${y}년</span></div>
+      <div class="tablewrap"><table><thead><tr><th>월</th><th>두수</th><th>총kg</th><th>평체</th><th>금액</th><th>kg단가</th></tr></thead>
+      <tbody>${monthTable}<tr class="tot"><td class="mcol">합계</td><td>${fmt(tH)}</td><td>${fmt(tK)}</td><td>${fmt1(tH?tK/tH:0)}</td><td>${fmt(tA)}</td><td>${fmt(tK?tA/tK:0)}</td></tr></tbody></table></div></div>
+    <div class="card" style="margin-top:18px"><div class="hd"><h2>출하 기록</h2><span class="sub">개별 출하 내역</span></div>
+      <div class="row-add">
+        <div class="field"><label>일자</label><input class="inp" id="s_date" type="date" value="${y}-01-01"></div>
+        <div class="field"><label>두수</label><input class="inp" id="s_head" inputmode="numeric"></div>
+        <div class="field"><label>총kg</label><input class="inp" id="s_kg" inputmode="numeric"></div>
+        <div class="field"><label>금액(원)</label><input class="inp" id="s_amt" inputmode="numeric"></div>
+        <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
+        <div class="field"><label>구분</label><select id="s_off"><option value="false">규격</option><option value="true">비규격</option></select></div>
+        <button class="btn primary" id="addShip">+ 추가</button>
+      </div>
+      <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>총kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
+      <tbody>${rows.slice().reverse().map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
+        return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
+        <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
+        <td><button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')||`<tr><td colspan="9" class="empty">${y}년 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
   document.getElementById('addShip').onclick=async()=>{
-    const d=document.getElementById('s_date').value;
-    if(!d){toast('일자를 입력하세요',true);return;}
-    const {error}=await sb.from(T.ship).insert({
-      farm_id:state.farmId,ship_date:d,head:num(document.getElementById('s_head').value),
-      total_kg:num(document.getElementById('s_kg').value),amount:num(document.getElementById('s_amt').value),
-      national_price:num(document.getElementById('s_nat').value),is_offspec:document.getElementById('s_off').value==='true'});
-    if(error){toast('추가 실패: '+error.message,true);return;}
-    toast('추가되었습니다');render();
+    const d=document.getElementById('s_date').value; if(!d){toast('일자를 입력하세요',true);return;}
+    const {error}=await sb.from(T.ship).insert({farm_id:state.farmId,ship_date:d,head:num(s_head.value),total_kg:num(s_kg.value),
+      amount:num(s_amt.value),national_price:num(s_nat.value),is_offspec:s_off.value==='true'});
+    if(error){toast('추가 실패: '+error.message,true);return;} toast('추가되었습니다');render();
   };
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
     if(!confirm('이 기록을 삭제할까요?'))return;
     const {error}=await sb.from(T.ship).delete().eq('id',b.dataset.del);
-    if(error){toast('삭제 실패',true);return;} toast('삭제되었습니다');render();
-  });
+    if(error){toast('삭제 실패',true);return;} toast('삭제되었습니다');render();});
 }
 
-/* ---------- 대시보드 ---------- */
+/* ---------- 대시보드 (연간 월별 요약) ---------- */
 async function viewDash(){
-  const fid=state.farmId, ym=state.ym;
-  const [h,b,f,e,sh]=await Promise.all([
-    sb.from(T.head).select('*').eq('farm_id',fid).eq('ym',ym).maybeSingle(),
-    sb.from(T.breed).select('*').eq('farm_id',fid).eq('ym',ym).maybeSingle(),
-    sb.from(T.feed).select('*').eq('farm_id',fid).eq('ym',ym).maybeSingle(),
-    sb.from(T.exp).select('*').eq('farm_id',fid).eq('ym',ym).maybeSingle(),
-    sb.from(T.ship).select('*').eq('farm_id',fid)
+  const fid=state.farmId,y=state.year;
+  const [h,f,e,sh]=await Promise.all([
+    sb.from(T.head).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
+    sb.from(T.feed).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
+    sb.from(T.exp).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
+    sb.from(T.ship).select('*').eq('farm_id',fid).gte('ship_date',`${y}-01-01`).lte('ship_date',`${y}-12-31`)
   ]);
-  const H=h.data||{},B=b.data||{},F=f.data||{},E=e.data||{};
-  const ships=(sh.data||[]).filter(r=>(r.ship_date||'').slice(0,7)===ym);
-  const sows=num(H.preg)+num(H.lactating);
-  const totalHead=sows+num(H.boar)+num(H.gilt)+num(H.suckling)+num(H.weaned)+num(H.growing)+num(H.finishing);
-  const avgBorn=num(B.farrowing)?num(B.born_total)/num(B.farrowing):0;
-  const feedKg=['preg','lactating','gilt','f1','f2','f3','fchange','suckle','grow','finish'].reduce((s,k)=>s+num(F[k]),0);
-  const shipHead=ships.reduce((s,r)=>s+num(r.head),0), shipKg=ships.reduce((s,r)=>s+num(r.total_kg),0), shipAmt=ships.reduce((s,r)=>s+num(r.amount),0);
-  const avgW=shipHead?shipKg/shipHead:0;
-  const feedEff=shipKg?feedKg/shipKg:0;
-  const expTotal=EXP.reduce((s,d)=>s+num(E[d.k]),0);
-  const feedDeduct=shipAmt-num(F.feed_cost);
-  const netEst=shipAmt-num(F.feed_cost)-expTotal;
-  const farm=state.farms.find(x=>x.id===fid);
+  const H={},F={},E={}; (h.data||[]).forEach(r=>H[+r.ym.slice(5,7)]=r);(f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);(e.data||[]).forEach(r=>E[+r.ym.slice(5,7)]=r);
+  const S={}; MONTHS.forEach(m=>S[m]={head:0,amt:0}); (sh.data||[]).forEach(r=>{const m=+(r.ship_date||'').slice(5,7);if(S[m]){S[m].head+=num(r.head);S[m].amt+=num(r.amount);}});
+  const feedKeys=['preg','lactating','gilt','f1','f2','f3','fchange','suckle','grow','finish'];
+  const expKeys=DEF.exp.cols.map(c=>c.k);
+  let T_sows=0,T_ship=0,T_amt=0,T_feedkg=0,T_feedc=0,T_exp=0,T_net=0;
+  const rowsHtml=MONTHS.map(m=>{
+    const hr=H[m]||{},fr=F[m]||{},er=E[m]||{};
+    const sows=num(hr.preg)+num(hr.lactating);
+    const total=sows+num(hr.boar)+num(hr.gilt)+num(hr.suckling)+num(hr.weaned)+num(hr.growing)+num(hr.finishing);
+    const fkg=feedKeys.reduce((s,k)=>s+num(fr[k]),0), fc=num(fr.feed_cost);
+    const ex=expKeys.reduce((s,k)=>s+num(er[k]),0);
+    const sHead=S[m].head,sAmt=S[m].amt, net=sAmt-fc-ex;
+    T_ship+=sHead;T_amt+=sAmt;T_feedkg+=fkg;T_feedc+=fc;T_exp+=ex;T_net+=net;
+    return `<tr><td class="mcol">${m}월</td><td>${fmt(sows)}</td><td>${fmt(total)}</td><td>${fmt(sHead)}</td><td>${fmt(sAmt)}</td><td>${fmt(fkg)}</td><td>${fmt(fc)}</td><td>${fmt(ex)}</td><td>${fmt(net)}</td></tr>`;
+  }).join('');
   document.getElementById('view').innerHTML=`
-    <div class="kpis">
-      ${kpi('상시 모돈',fmt(sows),'두')}
-      ${kpi('총 사육두수',fmt(totalHead),'두')}
-      ${kpi('평균 산자수',fmt1(avgBorn),'두/복')}
-      ${kpi('출하두수',fmt(shipHead),'두')}
-      ${kpi('평균 출하체중',fmt1(avgW),'kg')}
-      ${kpi('사료효율',fmt1(feedEff),'')}
-    </div>
-    <div class="kpis">
-      ${kpi('총 사료량',fmt(feedKg),'kg')}
-      ${kpi('출하금액',fmt(shipAmt),'원')}
-      ${kpi('사료비',fmt(F.feed_cost),'원')}
-      ${kpi('사료비공제수익',fmt(feedDeduct),'원')}
-      ${kpi('운영경비',fmt(expTotal),'원')}
-      ${kpi('순이익(추정)',fmt(netEst),'원',true)}
-    </div>
-    ${card(`${farm?farm.name:''} · ${ym} 요약`,'각 탭에서 데이터를 입력하면 자동 반영됩니다',
-      `<table><tbody>
-        <tr><td>번식돈계</td><td>${fmt(sows+num(H.boar)+num(H.gilt))} 두</td>
-            <td>비육돈계</td><td>${fmt(num(H.suckling)+num(H.weaned)+num(H.growing)+num(H.finishing))} 두</td></tr>
-        <tr><td>kg당 사료단가</td><td>${fmt(feedKg?num(F.feed_cost)/feedKg:0)} 원</td>
-            <td>출하 kg단가</td><td>${fmt(shipKg?shipAmt/shipKg:0)} 원</td></tr>
-        <tr><td>총산자수</td><td>${fmt(B.born_total)} 두</td>
-            <td>총이유자돈수</td><td>${fmt(B.weaned_total)} 두</td></tr>
-      </tbody></table>`)}`;
+    <div class="kpis">${kpi('연간 출하두수',fmt(T_ship),'두')}${kpi('연간 출하금액',fmt(T_amt),'원')}${kpi('연간 사료비',fmt(T_feedc),'원')}${kpi('연간 운영경비',fmt(T_exp),'원')}${kpi('순이익(추정)',fmt(T_net),'원',true)}</div>
+    <div class="card"><div class="hd"><h2>월별 종합</h2><span class="sub">${y}년 · 각 탭 입력값 자동 반영</span></div>
+      <div class="tablewrap"><table><thead><tr><th>월</th><th>상시모돈</th><th>총사육</th><th>출하두수</th><th>출하금액</th><th>사료량(kg)</th><th>사료비</th><th>운영경비</th><th>순이익(추정)</th></tr></thead>
+      <tbody>${rowsHtml}<tr class="tot"><td class="mcol">합계</td><td>-</td><td>-</td><td>${fmt(T_ship)}</td><td>${fmt(T_amt)}</td><td>${fmt(T_feedkg)}</td><td>${fmt(T_feedc)}</td><td>${fmt(T_exp)}</td><td>${fmt(T_net)}</td></tr></tbody></table></div></div>`;
 }
 
 /* ---------- 모달 / 버튼 ---------- */
@@ -416,22 +290,16 @@ document.getElementById('cfgBtn').onclick=()=>{document.getElementById('cfgUrl')
 document.getElementById('saveCfgBtn').onclick=async()=>{
   cfg={url:document.getElementById('cfgUrl').value.trim(),key:document.getElementById('cfgKey').value.trim()};
   try{localStorage.setItem(LS,JSON.stringify(cfg));}catch(e){}
-  if(initClient()){closeModal('cfgModal');toast('연결되었습니다');await loadFarms();}
-  else toast('URL과 key를 확인하세요',true);
+  if(initClient()){closeModal('cfgModal');toast('연결되었습니다');await loadFarms();} else toast('URL과 key를 확인하세요',true);
 };
 document.getElementById('saveFarmBtn').onclick=async()=>{
-  const name=document.getElementById('fName').value.trim();
-  if(!name){toast('농장명을 입력하세요',true);return;}
-  const {data,error}=await sb.from(T.farms).insert({
-    name,owner:document.getElementById('fOwner').value.trim(),
-    phone:document.getElementById('fPhone').value.trim(),note:document.getElementById('fNote').value.trim()
-  }).select().single();
+  const name=document.getElementById('fName').value.trim(); if(!name){toast('농장명을 입력하세요',true);return;}
+  const {data,error}=await sb.from(T.farms).insert({name,owner:fOwner.value.trim(),phone:fPhone.value.trim(),note:fNote.value.trim()}).select().single();
   if(error){toast('저장 실패: '+error.message,true);return;}
   ['fName','fOwner','fPhone','fNote'].forEach(i=>document.getElementById(i).value='');
   closeModal('farmModal');toast('농장이 추가되었습니다');state.farmId=data.id;await loadFarms();
 };
 [...document.querySelectorAll('.overlay')].forEach(o=>o.onclick=e=>{if(e.target===o)o.classList.remove('show');});
-
 boot();
 </script>
 </body>
