@@ -114,6 +114,15 @@
   <div class="ft"><button class="btn ghost" onclick="closeModal('cfgModal')">닫기</button><button class="btn primary" id="saveCfgBtn">저장 후 연결</button></div>
 </div></div>
 
+<div class="overlay" id="scatterModal"><div class="modal" style="max-width:720px">
+  <div class="hd" id="scHd">도체 산점도</div>
+  <div class="bd2" id="scBody" style="max-height:80vh;overflow:auto"></div>
+  <div class="ft"><button class="btn ghost" onclick="closeModal('scatterModal')">닫기</button>
+    <input type="file" id="scFile" accept=".xlsx,.xls" style="display:none">
+    <button class="btn" id="scUpload">📂 정산서 업로드</button>
+    <button class="btn danger" id="scDelete" style="display:none">전체삭제</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <div class="overlay" id="mapModal"><div class="modal" style="max-width:560px">
@@ -123,7 +132,7 @@
 </div></div>
 
 <script>
-const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses',fc:'mgmt_forecast'};
+const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses',fc:'mgmt_forecast',pigs:'mgmt_ship_pigs'};
 const LS='pigfarm_cfg';
 const HARDCODED={url:'https://vsljsjqxcmielpxckjrn.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzbGpzanF4Y21pZWxweGNranJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjE0NzgsImV4cCI6MjA5MTkzNzQ3OH0.K8-tfAuMt_7gWQ7vyZwgeZ6LQiOf7B9V1qwSYbu2eY4'};
 let sb=null, cfg={...HARDCODED};
@@ -420,6 +429,130 @@ document.getElementById('applyMap').onclick=async()=>{
   state.year=y; const ys=document.getElementById('yearSel'); if([...ys.options].some(o=>+o.value===y))ys.value=y; viewFeed();
 };
 
+/* ---------- 도체 산점도 (정산서 업로드) ---------- */
+let scDate=null;
+function gradeOf(cw,bf){
+  if(cw>=83&&cw<93&&bf>=17&&bf<25)return'plus';
+  if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))return'one';
+  return'out';
+}
+function scatterSVG(pts){
+  const W=680,H=440,pL=46,pB=40,pT=14,pR=16, x0=60,x1=100,y0=8,y1=32;
+  const sx=v=>pL+(Math.max(x0,Math.min(x1,v))-x0)/(x1-x0)*(W-pL-pR);
+  const sy=v=>H-pB-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0)*(H-pT-pB);
+  const rect=(a,b,c,d,f,s)=>`<rect x="${sx(a)}" y="${sy(d)}" width="${sx(b)-sx(a)}" height="${sy(c)-sy(d)}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`;
+  const col={plus:'#E24B4A',one:'#378ADD',out:'#9aa39a'};
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">`;
+  s+=`<rect x="${pL}" y="${pT}" width="${W-pL-pR}" height="${H-pT-pB}" fill="#fafbfa" stroke="#e3e8e2"/>`;
+  s+=rect(80,98,15,28,'rgba(55,138,221,0.08)','rgba(55,138,221,0.5)');
+  s+=rect(83,93,17,25,'rgba(210,40,40,0.10)','rgba(210,40,40,0.7)');
+  for(let v=x0;v<=x1;v+=5)s+=`<line x1="${sx(v)}" y1="${H-pB}" x2="${sx(v)}" y2="${H-pB+4}" stroke="#aaa"/><text x="${sx(v)}" y="${H-pB+16}" font-size="10" text-anchor="middle" fill="#888">${v}</text>`;
+  for(let v=y0+2;v<=y1;v+=4)s+=`<line x1="${pL-4}" y1="${sy(v)}" x2="${pL}" y2="${sy(v)}" stroke="#aaa"/><text x="${pL-7}" y="${sy(v)+3}" font-size="10" text-anchor="end" fill="#888">${v}</text>`;
+  s+=`<text x="${W/2}" y="${H-5}" font-size="11" text-anchor="middle" fill="#666">도체중 (kg)</text>`;
+  s+=`<text x="13" y="${H/2}" font-size="11" text-anchor="middle" fill="#666" transform="rotate(-90 13 ${H/2})">등지방 (mm)</text>`;
+  pts.forEach(p=>{const cw=num(p.cw),bf=num(p.bf); if(!cw||!bf)return;
+    s+=`<circle cx="${sx(cw)}" cy="${sy(bf)}" r="4.5" fill="${col[gradeOf(cw,bf)]}" fill-opacity="0.82" stroke="#fff" stroke-width="0.6"/>`;});
+  return s+`</svg>`;
+}
+function pigStats(pigs){
+  const n=pigs.length; if(!n)return null;
+  const lwArr=pigs.filter(p=>num(p.lw)>0);
+  const avg=(arr,k)=>arr.length?arr.reduce((a,p)=>a+num(p[k]),0)/arr.length:0;
+  const avgCw=avg(pigs,'cw'),avgBf=avg(pigs,'bf'),avgLw=avg(lwArr,'lw');
+  const plus=pigs.filter(p=>gradeOf(num(p.cw),num(p.bf))==='plus').length;
+  const female=pigs.filter(p=>p.sex==='암').length, cast=pigs.filter(p=>p.sex==='거세').length;
+  const price=pigs.reduce((a,p)=>a+num(p.price),0);
+  return {n,avgCw,avgBf,avgLw,dressing:avgLw?avgCw/avgLw*100:0,plusPct:plus/n*100,female,cast,price};
+}
+function parseSettlement(aoa){
+  const txt=v=>String(v==null?'':v);
+  let hr=-1,col={};
+  for(let i=0;i<Math.min(aoa.length,45);i++){
+    const row=(aoa[i]||[]).map(txt);
+    if(row.some(c=>c.includes('도체중')&&!c.includes('감량'))&&row.some(c=>c.includes('등지방')&&!c.includes('감량'))&&row.some(c=>c.trim()==='성별')){
+      hr=i; row.forEach((c,idx)=>{const t=c.trim();
+        if(t==='성별')col.sex=idx;
+        else if(t.includes('생체중'))col.lw=idx;
+        else if(t.includes('도체중')&&!t.includes('감량'))col.cw=idx;
+        else if(t.includes('등지방')&&!t.includes('감량'))col.bf=idx;
+        else if(t.includes('생돈대'))col.price=idx;
+        else if(t.includes('도체번호')||t.includes('개체번호'))col.pid=idx;});
+      break;}
+  }
+  if(hr<0||col.cw==null||col.bf==null)return{date:null,pigs:[]};
+  let date=null;
+  for(let i=0;i<hr&&!date;i++)for(const c of (aoa[i]||[])){
+    if(c instanceof Date){date=isoDate(c);break;}
+    const m=txt(c).match(/(\d{4})-(\d{2})-(\d{2})/); if(m){date=m[0];break;}}
+  const sexes=['암','거세','수'], pigs=[];
+  for(let i=hr+1;i<aoa.length;i++){
+    const row=aoa[i]||[]; const sex=txt(row[col.sex]).trim();
+    const cw=parseFloat(txt(row[col.cw]).replace(/,/g,'')); const bf=parseFloat(txt(row[col.bf]).replace(/,/g,''));
+    if(isNaN(cw)||cw<=0)continue;
+    if(col.sex!=null&&!sexes.includes(sex))continue;
+    pigs.push({sex,lw:parseFloat(txt(row[col.lw]).replace(/,/g,''))||0,cw,bf:isNaN(bf)?0:bf,
+      price:parseFloat(txt(row[col.price]).replace(/,/g,''))||0,pig_id:col.pid!=null?txt(row[col.pid]).trim():''});
+  }
+  return{date,pigs};
+}
+const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+async function openScatter(date){
+  scDate=date; document.getElementById('scHd').textContent=`${date} 도체 산점도`;
+  document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
+  openModal('scatterModal');
+  const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('ship_date',date).order('pig_id');
+  renderScatter(data||[]);
+}
+function renderScatter(pigs){
+  const body=document.getElementById('scBody'); const del=document.getElementById('scDelete');
+  const reg=pigs.filter(p=>num(p.cw)>0&&num(p.bf)>0);
+  document.getElementById('scUpload').textContent= pigs.length?'📂 다시 업로드':'📂 정산서 업로드';
+  del.style.display= pigs.length?'':'none';
+  if(!pigs.length){ body.innerHTML=`<div class="empty"><div class="big">📈</div>이 날짜의 도체 데이터가 없습니다.<br>아래 <b>정산서 업로드</b>로 엑셀을 올리면 산점도가 생성됩니다.</div>`; return; }
+  const st=pigStats(reg);
+  const k=(l,v,u)=>`<div class="kpi"><div class="k">${l}</div><div class="v">${v} <small>${u||''}</small></div></div>`;
+  body.innerHTML=`
+    <div class="kpis" style="margin-bottom:14px">
+      ${k('출하두수',fmt(st.n),'두')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
+      ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급+ 비율',fmt1(st.plusPct),'%')}</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:8px">
+      <span>암 <b style="color:var(--ink)">${st.female}두</b></span><span>거세 <b style="color:var(--ink)">${st.cast}두</b></span>
+      <span>생돈대 합계 <b style="color:var(--brand-d)">${fmt(st.price)}원</b></span></div>
+    ${scatterSVG(reg)}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E24B4A"></span> 1등급+</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#378ADD"></span> 1등급</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9aa39a"></span> 등외</span></div>`;
+}
+async function saveScatter(pigs){
+  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate);
+  const rows=pigs.map(p=>({farm_id:state.farmId,ship_date:scDate,pig_id:p.pig_id||null,sex:p.sex||null,
+    lw:p.lw||0,cw:p.cw||0,bf:p.bf||0,price:p.price||0}));
+  const {error}=await sb.from(T.pigs).insert(rows);
+  if(error){toast('저장 실패: '+error.message,true);return false;}
+  return true;
+}
+document.getElementById('scUpload').onclick=()=>document.getElementById('scFile').click();
+document.getElementById('scFile').onchange=e=>{const f=e.target.files[0]; e.target.value=''; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=async ev=>{
+    let aoa; try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});}
+    catch(err){toast('엑셀을 읽을 수 없습니다',true);return;}
+    const {date,pigs}=parseSettlement(aoa);
+    if(!pigs.length){toast('도체 데이터를 찾지 못했습니다',true);return;}
+    if(date&&date!==scDate&&!confirm(`파일의 출하일(${date})이 선택한 날짜(${scDate})와 달라요.\n선택한 날짜(${scDate})로 저장할까요?`))return;
+    if(await saveScatter(pigs)){toast(`${pigs.length}두 저장되었습니다`); const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('ship_date',scDate); renderScatter(data||[]);}
+  };
+  rd.readAsArrayBuffer(f);
+};
+document.getElementById('scDelete').onclick=async()=>{
+  if(!confirm(`${scDate} 도체 데이터를 모두 삭제할까요?`))return;
+  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate);
+  toast('삭제되었습니다'); renderScatter([]);
+};
+
 /* ---------- 출하현황 (일자별 기록 + 월 요약) ---------- */
 function aggShipByMonth(rows){
   const M={}; MONTHS.forEach(m=>M[m]={head:0,kg:0,amt:0,np:0,npn:0,oHead:0,oAmt:0});
@@ -461,14 +594,17 @@ async function viewShip(){
         <div class="field"><label>kg</label><input class="inp" id="s_kg" inputmode="numeric"></div>
         <div class="field"><label>금액(원)</label><input class="inp" id="s_amt" inputmode="numeric"></div>
         <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
-        <button class="btn primary" id="addShip">+ 추가</button></div>
+        <button class="btn primary" id="addShip">+ 추가</button>
+        <button class="btn" id="openSc">📈 이 날짜 산점도</button></div>
       <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
       <tbody>${mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
         return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
         <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
-        <td><button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')||`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+        <td style="white-space:nowrap"><button class="btn" data-sc="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')||`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
 
   document.querySelectorAll('[data-mon]').forEach(tr=>tr.onclick=()=>{state.shipMonth=+tr.dataset.mon;viewShip();});
+  document.getElementById('openSc').onclick=()=>{const d=document.getElementById('s_date').value; if(!d){toast('일자를 선택하세요',true);return;} openScatter(d);};
+  document.querySelectorAll('[data-sc]').forEach(b=>b.onclick=e=>{e.stopPropagation();openScatter(b.dataset.sc);});
   document.getElementById('addShip').onclick=async()=>{
     const d=document.getElementById('s_date').value; if(!d){toast('일자를 입력하세요',true);return;}
     const {error}=await sb.from(T.ship).insert({farm_id:state.farmId,ship_date:d,is_offspec:document.getElementById('s_off').value==='true',
