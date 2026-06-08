@@ -169,12 +169,14 @@ const DEF={
     {k:'suckling',l:'포유자돈'},{k:'weaned',l:'이유자돈'},{k:'growing',l:'육성돈'},{k:'finishing',l:'비육돈'},
     {calc:'feed',l:'비육돈계',fn:v=>v('suckling')+v('weaned')+v('growing')+v('finishing')},
     {calc:'tot',l:'총계',fn:v=>v('breed')+v('feed')}]},
-  breed:{table:T.breed,title:'번식성적',cols:[
+  breed:{table:T.breed,title:'번식성적',avgRow:true,psy:true,cols:[
     {k:'mating',l:'종부두수'},{k:'farrowing',l:'분만복수'},{k:'born_total',l:'총산자수'},
-    {calc:'avgborn',l:'평균산자수',dec:1,fn:v=>v('farrowing')?v('born_total')/v('farrowing'):0},
-    {k:'piglet_death',l:'자돈도폐'},{k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},
-    {calc:'avgwean',l:'평균이유두수',dec:1,fn:v=>v('weaning_litters')?v('weaned_total')/v('weaning_litters'):0},
-    {k:'weaning_age',l:'이유일령'}]},
+    {calc:'avgborn',l:'평균산자수',dec:1,agg:'rate',fn:v=>v('farrowing')?v('born_total')/v('farrowing'):0},
+    {k:'piglet_death',l:'자돈도폐'},{k:'nursing_start',l:'포유개시두수'},
+    {calc:'avgnursing',l:'평균포유두수',dec:1,agg:'rate',fn:v=>v('farrowing')?v('nursing_start')/v('farrowing'):0},
+    {k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},
+    {calc:'avgwean',l:'평균이유두수',dec:1,agg:'rate',fn:v=>v('weaning_litters')?v('weaned_total')/v('weaning_litters'):0},
+    {k:'weaning_age',l:'이유일령',dec:1}]},
   feed:{table:T.feed,title:'사료 소모량 (kg)',cols:[
     {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'gilt',l:'후보돈'},
     {calc:'bsub',l:'번식소계',fn:v=>v('preg')+v('lactating')+v('gilt')},
@@ -190,36 +192,51 @@ const DEF={
     {calc:'total',l:'합계',fn:v=>['labor','living','loan_repay','breeding_stock','feed_payment','semen','manure','modern_interest','medicine','repair','tax','utility','savings','vehicle','insurance','interest'].reduce((s,k)=>s+v(k),0)}]}
 };
 
+const showVal=(c,n,forceDec)=> n? ((forceDec||(c&&c.dec))?fmt1(n):fmt(n)) : '-';
+
 async function viewGrid(key){
-  const d=DEF[key];
+  const d=DEF[key], cols=d.cols, inCols=cols.filter(c=>c.k);
   const {data}=await sb.from(d.table).select('*').eq('farm_id',state.farmId).like('ym',`${state.year}-%`);
   const byM={}; (data||[]).forEach(r=>byM[+r.ym.slice(5,7)]=r);
-  const head=`<th>월</th>`+d.cols.map(c=>`<th>${c.l}</th>`).join('');
-  const body=MONTHS.map(m=>{
-    const r=byM[m]||{};
-    return `<tr><td class="mcol">${m}월</td>`+d.cols.map(c=> c.calc
+  let sows={};
+  if(d.psy){const h=await sb.from(T.head).select('*').eq('farm_id',state.farmId).like('ym',`${state.year}-%`);
+    (h.data||[]).forEach(r=>sows[+r.ym.slice(5,7)]=num(r.preg)+num(r.lactating));}
+  const head=`<th>월</th>`+cols.map(c=>`<th>${c.l}</th>`).join('');
+  const body=MONTHS.map(m=>{const r=byM[m]||{};
+    return `<tr><td class="mcol">${m}월</td>`+cols.map(c=> c.calc
       ? `<td class="calc" data-m="${m}" data-calc="${c.calc}">-</td>`
       : `<td><input class="cell" data-m="${m}" data-k="${c.k}" value="${r[c.k]!=null?r[c.k]:''}" inputmode="numeric"></td>`
-    ).join('')+`</tr>`;
-  }).join('');
-  const tot=`<tr class="tot"><td class="mcol">합계</td>`+d.cols.map(c=>`<td ${c.calc?'class="calc"':''} data-tot="${c.calc||c.k}">-</td>`).join('')+`</tr>`;
+    ).join('')+`</tr>`;}).join('');
+  const aggRow=(label,attr)=>`<tr class="tot"><td class="mcol">${label}</td>`+cols.map(c=>`<td ${c.calc?'class="calc"':''} data-${attr}="${c.calc||c.k}">-</td>`).join('')+`</tr>`;
+  const psyHtml=d.psy?`<span class="hint">PSY (연간환산·상시모돈 기준 추정): <b id="psyVal" style="color:var(--brand);font-size:15px">-</b></span>`:`<span class="hint">값이 하나도 없는 달은 저장하지 않습니다.</span>`;
   document.getElementById('view').innerHTML=`<div class="card">
-    <div class="hd"><h2>${d.title}</h2><span class="sub">${state.year}년 · 흰 칸에 입력하면 회색 칸은 자동 계산됩니다</span></div>
-    <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead><tbody>${body}${tot}</tbody></table></div>
-    <div class="gridfoot"><span class="hint">값이 하나도 없는 달은 저장하지 않습니다.</span>
-      <button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>`;
-  const fv=(c,n)=> c&&c.dec?fmt1(n):fmt(n);
+    <div class="hd"><h2>${d.title}</h2><span class="sub">${state.year}년 · 흰 칸 입력 → 회색 칸 자동 계산</span></div>
+    <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead><tbody>${body}${aggRow('합계','tot')}${d.avgRow?aggRow('평균','avg'):''}</tbody></table></div>
+    <div class="gridfoot">${psyHtml}<button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>`;
+
   const recompute=()=>{
-    const sumK={}; d.cols.filter(c=>c.k).forEach(c=>sumK[c.k]=0);
+    const sumK={},cntK={}; inCols.forEach(c=>{sumK[c.k]=0;cntK[c.k]=0;});
     MONTHS.forEach(m=>{
       const raw={};
-      d.cols.filter(c=>c.k).forEach(c=>{const el=document.querySelector(`#grid .cell[data-m="${m}"][data-k="${c.k}"]`);raw[c.k]=num(el.value);sumK[c.k]+=raw[c.k];});
+      inCols.forEach(c=>{const el=document.querySelector(`#grid .cell[data-m="${m}"][data-k="${c.k}"]`);
+        raw[c.k]=num(el.value); if(el.value.trim()!==''){sumK[c.k]+=raw[c.k];cntK[c.k]++;}});
       const cv={}; const v=k=>(k in raw)?raw[k]:((k in cv)?cv[k]:0);
-      d.cols.forEach(c=>{ if(c.calc){ cv[c.calc]=c.fn(v); document.querySelector(`#grid .calc[data-m="${m}"][data-calc="${c.calc}"]`).textContent=fv(c,cv[c.calc]); }});
+      cols.forEach(c=>{if(c.calc){cv[c.calc]=c.fn(v);
+        document.querySelector(`#grid .calc[data-m="${m}"][data-calc="${c.calc}"]`).textContent=showVal(c,cv[c.calc]);}});
     });
-    const ct={}; const tv=k=>(k in sumK)?sumK[k]:((k in ct)?ct[k]:0);
-    d.cols.forEach(c=>{const cell=document.querySelector(`#grid [data-tot="${c.calc||c.k}"]`); if(!cell)return;
-      if(c.calc){ct[c.calc]=c.fn(tv);cell.textContent=fv(c,ct[c.calc]);} else cell.textContent=fv(c,sumK[c.k]);});
+    const avgK={}; inCols.forEach(c=>avgK[c.k]=cntK[c.k]?sumK[c.k]/cntK[c.k]:0);
+    const ctS={}; const tvS=k=>(k in sumK)?sumK[k]:((k in ctS)?ctS[k]:0);
+    cols.forEach(c=>{const cell=document.querySelector(`#grid [data-tot="${c.calc||c.k}"]`); if(!cell)return;
+      if(c.calc){ if((c.agg||'sum')==='rate'){cell.textContent='';} else {ctS[c.calc]=c.fn(tvS);cell.textContent=showVal(c,ctS[c.calc]);} }
+      else cell.textContent=showVal(c,sumK[c.k]);});
+    if(d.avgRow){const ctA={}; const tvA=k=>(k in avgK)?avgK[k]:((k in ctA)?ctA[k]:0);
+      cols.forEach(c=>{const cell=document.querySelector(`#grid [data-avg="${c.calc||c.k}"]`); if(!cell)return;
+        if(c.calc){ctA[c.calc]=c.fn(tvA);cell.textContent=showVal(c,ctA[c.calc],true);}
+        else cell.textContent=showVal(c,avgK[c.k],true);});}
+    if(d.psy){let w=0,n=0,ss=0;
+      MONTHS.forEach(m=>{const el=document.querySelector(`#grid .cell[data-m="${m}"][data-k="weaned_total"]`);
+        if(el.value.trim()!==''&&num(el.value)>0){w+=num(el.value);n++;ss+=(sows[m]||0);}});
+      const as=n?ss/n:0; document.getElementById('psyVal').textContent= as?fmt1((w/as)*(12/n)):'-';}
   };
   document.getElementById('grid').addEventListener('input',recompute); recompute();
   document.getElementById('saveGrid').onclick=async()=>{
