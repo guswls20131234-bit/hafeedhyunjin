@@ -130,7 +130,7 @@ try{ cfg=JSON.parse(localStorage.getItem(LS))||cfg; }catch(e){}
 function initClient(){ if(cfg.url&&cfg.key&&window.supabase){sb=window.supabase.createClient(cfg.url,cfg.key);return true;} return false; }
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2200);}
 
-const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg'};
+const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg',shipMonth:new Date().getMonth()+1};
 const FEED_REPRO=[['preg','임신돈'],['lactating','포유돈'],['gilt','후보돈']];
 const FEED_FATTEN=[['f1','1호'],['f2','2호'],['f3','3호'],['fchange','체인지'],['suckle','젖먹이'],['grow','육성'],['finish','비육']];
 const FEED_ALL=[...FEED_REPRO,...FEED_FATTEN];
@@ -172,7 +172,7 @@ function render(){
   const v=document.getElementById('view');
   if(!sb){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔌</div>Supabase에 아직 연결되지 않았습니다.<br>우측 상단 ⚙️ 에서 URL과 anon key를 입력하세요.</div></div></div>`;return;}
   if(!state.farmId){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🏡</div>등록된 거래처(농장)가 없습니다.<br>우측 상단 <b>+ 농장</b> 으로 추가하세요.</div></div></div>`;return;}
-  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:()=>viewGrid('ship'),perf:viewPerf,exp:()=>viewGrid('exp')})[state.tab]();
+  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,exp:()=>viewGrid('exp')})[state.tab]();
 }
 function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div class="k">${k}</div><div class="v">${v} <small>${unit||''}</small></div></div>`;}
 
@@ -195,13 +195,6 @@ const DEF={
     {calc:'avgwean',l:'평균이유두수',dec:1,agg:'rate',fn:v=>v('weaning_litters')?v('weaned_total')/v('weaning_litters'):0},
     {k:'weaning_age',l:'이유일령',dec:1}]},
   feed:{table:T.feed,title:'사료',cols:[]},
-  ship:{table:T.ship,title:'출하현황',avgRow:true,cols:[
-    {k:'head',l:'출하두수'},{k:'total_kg',l:'kg'},{k:'amount',l:'금액'},
-    {calc:'avgw',l:'평체',dec:1,agg:'rate',fn:v=>v('head')?v('total_kg')/v('head'):0},
-    {calc:'avgp',l:'평균가격',agg:'rate',fn:v=>v('total_kg')?v('amount')/v('total_kg'):0},
-    {k:'national_price',l:'전국시세'},
-    {calc:'apply',l:'적용%',dec:1,agg:'rate',fn:v=>(v('national_price')&&v('total_kg'))?v('amount')/v('total_kg')/v('national_price')*100:0},
-    {k:'off_head',l:'비규격두수'},{k:'off_amount',l:'비규격금액'}]},
   exp:{table:T.exp,title:'운영경비 (원)',cols:[
     {k:'labor',l:'인건비'},{k:'living',l:'생활비'},{k:'loan_repay',l:'대여금상환'},{k:'breeding_stock',l:'종돈구입비'},
     {k:'feed_payment',l:'사료대금'},{k:'semen',l:'정액비용'},{k:'manure',l:'분뇨처리비'},{k:'modern_interest',l:'현대화원리금'},
@@ -426,18 +419,78 @@ document.getElementById('applyMap').onclick=async()=>{
   state.year=y; const ys=document.getElementById('yearSel'); if([...ys.options].some(o=>+o.value===y))ys.value=y; viewFeed();
 };
 
+/* ---------- 출하현황 (일자별 기록 + 월 요약) ---------- */
+function aggShipByMonth(rows){
+  const M={}; MONTHS.forEach(m=>M[m]={head:0,kg:0,amt:0,np:0,npn:0,oHead:0,oAmt:0});
+  rows.forEach(r=>{const m=+(r.ship_date||'').slice(5,7); if(!M[m])return;
+    if(r.is_offspec){M[m].oHead+=num(r.head);M[m].oAmt+=num(r.amount);}
+    else{M[m].head+=num(r.head);M[m].kg+=num(r.total_kg);M[m].amt+=num(r.amount);
+      if(num(r.national_price)>0){M[m].np+=num(r.national_price);M[m].npn++;}}});
+  return M;
+}
+async function viewShip(){
+  const y=state.year;
+  const {data}=await sb.from(T.ship).select('*').eq('farm_id',state.farmId)
+    .gte('ship_date',`${y}-01-01`).lte('ship_date',`${y}-12-31`).order('ship_date');
+  const rows=data||[]; const M=aggShipByMonth(rows); const sm=state.shipMonth;
+  const sumRow=m=>{const a=M[m]; const pw=a.head?a.kg/a.head:0, pp=a.kg?a.amt/a.kg:0, np=a.npn?a.np/a.npn:0, ap=np?pp/np*100:0;
+    const has=a.head||a.kg||a.amt||a.oHead||a.oAmt;
+    return `<tr data-mon="${m}" style="cursor:pointer${m===sm?';background:var(--brand-l)':''}">
+      <td class="mcol">${m}월</td><td>${has?fmt(a.head):'-'}</td><td>${has?fmt(a.kg):'-'}</td><td>${has?fmt(a.amt):'-'}</td>
+      <td>${has?fmt1(pw):'-'}</td><td>${has?fmt(pp):'-'}</td><td>${np?fmt(np):'-'}</td><td>${ap?fmt1(ap):'-'}</td>
+      <td class="gsep">${a.oHead?fmt(a.oHead):'-'}</td><td>${a.oAmt?fmt(a.oAmt):'-'}</td></tr>`;};
+  const T_=k=>MONTHS.reduce((s,m)=>s+M[m][k],0);
+  const tH=T_('head'),tK=T_('kg'),tA=T_('amt'),toH=T_('oHead'),toA=T_('oAmt');
+  const mr=rows.filter(r=>+(r.ship_date||'').slice(5,7)===sm);
+  document.getElementById('view').innerHTML=`
+    <div class="card"><div class="hd"><h2>출하현황</h2><span class="sub">${y}년 · 월을 클릭하면 그 달 일자별 입력이 열립니다</span></div>
+      <div class="tablewrap"><table><thead><tr>
+        <th>월</th><th>출하두수</th><th>kg</th><th>금액</th><th>평체</th><th>평균가격</th><th>전국</th><th>적용%</th>
+        <th class="gsep">비규격두수</th><th>비규격금액</th></tr></thead>
+      <tbody>${MONTHS.map(sumRow).join('')}
+        <tr class="tot"><td class="mcol">합계</td><td>${fmt(tH)}</td><td>${fmt(tK)}</td><td>${fmt(tA)}</td>
+          <td>${fmt1(tH?tK/tH:0)}</td><td>${fmt(tK?tA/tK:0)}</td><td>-</td><td>-</td>
+          <td class="gsep">${fmt(toH)}</td><td>${fmt(toA)}</td></tr></tbody></table></div></div>
+
+    <div class="card" style="margin-top:18px"><div class="hd"><h2>${sm}월 출하 기록</h2><span class="sub">일자별로 추가</span></div>
+      <div class="row-add">
+        <div class="field"><label>일자</label><input class="inp" id="s_date" type="date" value="${y}-${String(sm).padStart(2,'0')}-01"></div>
+        <div class="field"><label>구분</label><select id="s_off"><option value="false">규격</option><option value="true">비규격</option></select></div>
+        <div class="field"><label>두수</label><input class="inp" id="s_head" inputmode="numeric"></div>
+        <div class="field"><label>kg</label><input class="inp" id="s_kg" inputmode="numeric"></div>
+        <div class="field"><label>금액(원)</label><input class="inp" id="s_amt" inputmode="numeric"></div>
+        <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
+        <button class="btn primary" id="addShip">+ 추가</button></div>
+      <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
+      <tbody>${mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
+        return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
+        <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
+        <td><button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')||`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+
+  document.querySelectorAll('[data-mon]').forEach(tr=>tr.onclick=()=>{state.shipMonth=+tr.dataset.mon;viewShip();});
+  document.getElementById('addShip').onclick=async()=>{
+    const d=document.getElementById('s_date').value; if(!d){toast('일자를 입력하세요',true);return;}
+    const {error}=await sb.from(T.ship).insert({farm_id:state.farmId,ship_date:d,is_offspec:document.getElementById('s_off').value==='true',
+      head:num(s_head.value),total_kg:num(s_kg.value),amount:num(s_amt.value),national_price:num(s_nat.value)});
+    if(error){toast('추가 실패: '+error.message,true);return;} toast('추가되었습니다');viewShip();
+  };
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async(e)=>{e.stopPropagation();
+    if(!confirm('이 기록을 삭제할까요?'))return;
+    const {error}=await sb.from(T.ship).delete().eq('id',b.dataset.del);
+    if(error){toast('삭제 실패',true);return;} toast('삭제되었습니다');viewShip();});
+}
+
 /* ---------- 출하성적 (출하+비규격+사료 종합, 자동계산) ---------- */
 async function viewPerf(){
   const fid=state.farmId,y=state.year;
   const [s,f]=await Promise.all([
-    sb.from(T.ship).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
+    sb.from(T.ship).select('*').eq('farm_id',fid).gte('ship_date',`${y}-01-01`).lte('ship_date',`${y}-12-31`),
     sb.from(T.feed).select('*').eq('farm_id',fid).like('ym',`${y}-%`)]);
-  const S={},F={}; (s.data||[]).forEach(r=>S[+r.ym.slice(5,7)]=r); (f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);
-  const rows=MONTHS.map(m=>{const sr=S[m]||{},fr=F[m]||{};
-    const head=num(sr.head),kg=num(sr.total_kg),amt=num(sr.amount),off=num(sr.off_amount);
-    const feedKg=FEED_ALL.reduce((a,[b])=>a+num(fr[b+'_kg']),0), feedWon=FEED_ALL.reduce((a,[b])=>a+num(fr[b+'_won']),0);
-    if(!(head||kg||amt||off||feedKg))return null;
-    const total=amt+off;
+  const M=aggShipByMonth(s.data||[]); const F={}; (f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);
+  const rows=MONTHS.map(m=>{const a=M[m],fr=F[m]||{};
+    const head=a.head,kg=a.kg,total=a.amt+a.oAmt;
+    const feedKg=FEED_ALL.reduce((x,[b])=>x+num(fr[b+'_kg']),0), feedWon=FEED_ALL.reduce((x,[b])=>x+num(fr[b+'_won']),0);
+    if(!(head||kg||total||feedKg))return null;
     return {m,head,kg,total,feedKg,feedWon,profit:total-feedWon};}).filter(Boolean);
   const cell=r=>`<td>${fmt(r.head)}</td><td>${fmt(r.kg)}</td><td>${fmt1(r.head?r.kg/r.head:0)}</td>
     <td>${fmt(r.kg?r.total/r.kg:0)}</td><td>${fmt(r.total)}</td><td>${fmt(r.feedKg)}</td>
@@ -452,12 +505,12 @@ async function viewPerf(){
       ${kpi('사료효율(연간)',fmt1(tot.kg?tot.feedKg/tot.kg:0),'')}
       ${kpi('사료비공제수익',fmt(tot.profit),'원',true)}
     </div>
-    <div class="card"><div class="hd"><h2>출하성적</h2><span class="sub">${y}년 · 총판매금액=일반+비규격 · 출하/사료 탭 자동 반영</span></div>
+    <div class="card"><div class="hd"><h2>출하성적</h2><span class="sub">${y}년 · 총판매금액=일반+비규격 · 출하/사료 자동 반영</span></div>
       <div class="tablewrap"><table><thead><tr>
         <th>월</th><th>출하두수</th><th>총체중(kg)</th><th>평균(kg)</th><th>kg당단가</th><th>총판매금액(원)</th><th>사료톤수(kg)</th><th>사료효율</th><th>사료금액</th><th>사료비공제수익</th>
       </tr></thead><tbody>
       ${rows.map(r=>`<tr><td class="mcol">${r.m}월</td>${cell(r)}</tr>`).join('')||`<tr><td colspan="10" class="empty">${y}년 데이터가 없습니다. 출하현황·사료 탭을 먼저 입력하세요.</td></tr>`}
-      ${rows.length?`<tr class="tot"><td class="mcol">합계</td>${cell({head:tot.head,kg:tot.kg,total:tot.total,feedKg:tot.feedKg,feedWon:tot.feedWon,profit:tot.profit})}</tr>`:''}
+      ${rows.length?`<tr class="tot"><td class="mcol">합계</td>${cell(tot)}</tr>`:''}
       </tbody></table></div></div>`;
 }
 
@@ -468,10 +521,10 @@ async function viewDash(){
     sb.from(T.head).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
     sb.from(T.feed).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
     sb.from(T.exp).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
-    sb.from(T.ship).select('*').eq('farm_id',fid).like('ym',`${y}-%`)
+    sb.from(T.ship).select('*').eq('farm_id',fid).gte('ship_date',`${y}-01-01`).lte('ship_date',`${y}-12-31`)
   ]);
   const H={},F={},E={}; (h.data||[]).forEach(r=>H[+r.ym.slice(5,7)]=r);(f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);(e.data||[]).forEach(r=>E[+r.ym.slice(5,7)]=r);
-  const S={}; (sh.data||[]).forEach(r=>{S[+r.ym.slice(5,7)]={head:num(r.head),amt:num(r.amount)+num(r.off_amount)};});
+  const SM=aggShipByMonth(sh.data||[]); const S={}; MONTHS.forEach(m=>S[m]={head:SM[m].head,amt:SM[m].amt+SM[m].oAmt});
   const expKeys=DEF.exp.cols.filter(c=>c.k).map(c=>c.k);
   let T_sows=0,T_ship=0,T_amt=0,T_feedkg=0,T_feedc=0,T_exp=0,T_net=0;
   const rowsHtml=MONTHS.map(m=>{
