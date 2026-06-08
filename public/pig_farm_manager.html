@@ -125,8 +125,9 @@
 <script>
 const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses',fc:'mgmt_forecast'};
 const LS='pigfarm_cfg';
-let sb=null, cfg={url:'',key:''};
-try{ cfg=JSON.parse(localStorage.getItem(LS))||cfg; }catch(e){}
+const HARDCODED={url:'https://vsljsjqxcmielpxckjrn.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzbGpzanF4Y21pZWxweGNranJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjE0NzgsImV4cCI6MjA5MTkzNzQ3OH0.K8-tfAuMt_7gWQ7vyZwgeZ6LQiOf7B9V1qwSYbu2eY4'};
+let sb=null, cfg={...HARDCODED};
+try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.url&&s.key)cfg=s;}catch(e){}
 function initClient(){ if(cfg.url&&cfg.key&&window.supabase){sb=window.supabase.createClient(cfg.url,cfg.key);return true;} return false; }
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2200);}
 
