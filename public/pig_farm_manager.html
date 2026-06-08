@@ -55,6 +55,8 @@
   tr.tot td.mcol{background:#eef3ee}
   .cell{width:74px;border:1px solid transparent;background:transparent;border-radius:7px;padding:5px 7px;text-align:right;font-size:13px;color:var(--ink)}
   .cell:hover{border-color:var(--line)} .cell:focus{border-color:var(--brand);background:#fff;outline:none}
+  td.calc{background:#f3f6f3;color:var(--muted);font-weight:700}
+  tr.tot td.calc{background:#e6efe6;color:var(--brand-d)}
   .gridfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
   .empty{text-align:center;color:var(--muted);padding:50px 20px} .empty .big{font-size:34px;margin-bottom:10px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:11px;font-weight:600;font-size:13px;opacity:0;transition:.25s;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.25)}
@@ -160,19 +162,32 @@ function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div c
 /* ---------- 월별 그리드 정의 ---------- */
 const DEF={
   head:{table:T.head,title:'상시두수',cols:[
-    {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'boar',l:'웅돈'},{k:'gilt',l:'후보돈'},
-    {k:'suckling',l:'포유자돈'},{k:'weaned',l:'이유자돈'},{k:'growing',l:'육성돈'},{k:'finishing',l:'비육돈'}]},
+    {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},
+    {calc:'mo',l:'모돈계',fn:v=>v('preg')+v('lactating')},
+    {k:'boar',l:'웅돈'},{k:'gilt_female',l:'후보돈♀'},{k:'gilt_male',l:'후보돈♂'},
+    {calc:'breed',l:'번식돈계',fn:v=>v('mo')+v('boar')+v('gilt_female')+v('gilt_male')},
+    {k:'suckling',l:'포유자돈'},{k:'weaned',l:'이유자돈'},{k:'growing',l:'육성돈'},{k:'finishing',l:'비육돈'},
+    {calc:'feed',l:'비육돈계',fn:v=>v('suckling')+v('weaned')+v('growing')+v('finishing')},
+    {calc:'tot',l:'총계',fn:v=>v('breed')+v('feed')}]},
   breed:{table:T.breed,title:'번식성적',cols:[
-    {k:'mating',l:'종부두수'},{k:'farrowing',l:'분만복수'},{k:'born_total',l:'총산자수'},{k:'piglet_death',l:'자돈도폐'},
-    {k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},{k:'weaning_age',l:'이유일령'}]},
+    {k:'mating',l:'종부두수'},{k:'farrowing',l:'분만복수'},{k:'born_total',l:'총산자수'},
+    {calc:'avgborn',l:'평균산자수',dec:1,fn:v=>v('farrowing')?v('born_total')/v('farrowing'):0},
+    {k:'piglet_death',l:'자돈도폐'},{k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},
+    {calc:'avgwean',l:'평균이유두수',dec:1,fn:v=>v('weaning_litters')?v('weaned_total')/v('weaning_litters'):0},
+    {k:'weaning_age',l:'이유일령'}]},
   feed:{table:T.feed,title:'사료 소모량 (kg)',cols:[
-    {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'gilt',l:'후보돈'},{k:'f1',l:'1호'},{k:'f2',l:'2호'},{k:'f3',l:'3호'},
-    {k:'fchange',l:'체인지'},{k:'suckle',l:'젖먹이'},{k:'grow',l:'육성'},{k:'finish',l:'비육'},{k:'feed_cost',l:'사료비(원)'}]},
+    {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},{k:'gilt',l:'후보돈'},
+    {calc:'bsub',l:'번식소계',fn:v=>v('preg')+v('lactating')+v('gilt')},
+    {k:'f1',l:'1호'},{k:'f2',l:'2호'},{k:'f3',l:'3호'},{k:'fchange',l:'체인지'},{k:'suckle',l:'젖먹이'},{k:'grow',l:'육성'},{k:'finish',l:'비육'},
+    {calc:'gsub',l:'비육소계',fn:v=>v('f1')+v('f2')+v('f3')+v('fchange')+v('suckle')+v('grow')+v('finish')},
+    {calc:'kgtot',l:'사료합계',fn:v=>v('bsub')+v('gsub')},
+    {k:'feed_cost',l:'사료비(원)'}]},
   exp:{table:T.exp,title:'운영경비 (원)',cols:[
     {k:'labor',l:'인건비'},{k:'living',l:'생활비'},{k:'loan_repay',l:'대여금상환'},{k:'breeding_stock',l:'종돈구입비'},
     {k:'feed_payment',l:'사료대금'},{k:'semen',l:'정액비용'},{k:'manure',l:'분뇨처리비'},{k:'modern_interest',l:'현대화원리금'},
     {k:'medicine',l:'약품방역비'},{k:'repair',l:'수리유지비'},{k:'tax',l:'제세공과금'},{k:'utility',l:'전화전기수도광열'},
-    {k:'savings',l:'적금'},{k:'vehicle',l:'차량+운임'},{k:'insurance',l:'보험금'},{k:'interest',l:'이자'}]}
+    {k:'savings',l:'적금'},{k:'vehicle',l:'차량+운임'},{k:'insurance',l:'보험금'},{k:'interest',l:'이자'},
+    {calc:'total',l:'합계',fn:v=>['labor','living','loan_repay','breeding_stock','feed_payment','semen','manure','modern_interest','medicine','repair','tax','utility','savings','vehicle','insurance','interest'].reduce((s,k)=>s+v(k),0)}]}
 };
 
 async function viewGrid(key){
@@ -182,29 +197,38 @@ async function viewGrid(key){
   const head=`<th>월</th>`+d.cols.map(c=>`<th>${c.l}</th>`).join('');
   const body=MONTHS.map(m=>{
     const r=byM[m]||{};
-    return `<tr><td class="mcol">${m}월</td>`+d.cols.map(c=>
-      `<td><input class="cell" data-m="${m}" data-k="${c.k}" value="${r[c.k]!=null?r[c.k]:''}" inputmode="numeric"></td>`).join('')+`</tr>`;
+    return `<tr><td class="mcol">${m}월</td>`+d.cols.map(c=> c.calc
+      ? `<td class="calc" data-m="${m}" data-calc="${c.calc}">-</td>`
+      : `<td><input class="cell" data-m="${m}" data-k="${c.k}" value="${r[c.k]!=null?r[c.k]:''}" inputmode="numeric"></td>`
+    ).join('')+`</tr>`;
   }).join('');
-  const tot=`<tr class="tot"><td class="mcol">합계</td>`+d.cols.map(c=>`<td data-tot="${c.k}">-</td>`).join('')+`</tr>`;
+  const tot=`<tr class="tot"><td class="mcol">합계</td>`+d.cols.map(c=>`<td ${c.calc?'class="calc"':''} data-tot="${c.calc||c.k}">-</td>`).join('')+`</tr>`;
   document.getElementById('view').innerHTML=`<div class="card">
-    <div class="hd"><h2>${d.title}</h2><span class="sub">${state.year}년 · 표에 바로 입력하고 저장하세요</span></div>
+    <div class="hd"><h2>${d.title}</h2><span class="sub">${state.year}년 · 흰 칸에 입력하면 회색 칸은 자동 계산됩니다</span></div>
     <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead><tbody>${body}${tot}</tbody></table></div>
-    <div class="gridfoot"><span class="hint">빈 칸은 0으로 저장됩니다. 값이 하나도 없는 달은 저장하지 않습니다.</span>
+    <div class="gridfoot"><span class="hint">값이 하나도 없는 달은 저장하지 않습니다.</span>
       <button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>`;
-  const recompute=()=>d.cols.forEach(c=>{
-    let s=0; document.querySelectorAll(`#grid .cell[data-k="${c.k}"]`).forEach(i=>s+=num(i.value));
-    document.querySelector(`#grid [data-tot="${c.k}"]`).textContent=fmt(s);
-  });
+  const fv=(c,n)=> c&&c.dec?fmt1(n):fmt(n);
+  const recompute=()=>{
+    const sumK={}; d.cols.filter(c=>c.k).forEach(c=>sumK[c.k]=0);
+    MONTHS.forEach(m=>{
+      const raw={};
+      d.cols.filter(c=>c.k).forEach(c=>{const el=document.querySelector(`#grid .cell[data-m="${m}"][data-k="${c.k}"]`);raw[c.k]=num(el.value);sumK[c.k]+=raw[c.k];});
+      const cv={}; const v=k=>(k in raw)?raw[k]:((k in cv)?cv[k]:0);
+      d.cols.forEach(c=>{ if(c.calc){ cv[c.calc]=c.fn(v); document.querySelector(`#grid .calc[data-m="${m}"][data-calc="${c.calc}"]`).textContent=fv(c,cv[c.calc]); }});
+    });
+    const ct={}; const tv=k=>(k in sumK)?sumK[k]:((k in ct)?ct[k]:0);
+    d.cols.forEach(c=>{const cell=document.querySelector(`#grid [data-tot="${c.calc||c.k}"]`); if(!cell)return;
+      if(c.calc){ct[c.calc]=c.fn(tv);cell.textContent=fv(c,ct[c.calc]);} else cell.textContent=fv(c,sumK[c.k]);});
+  };
   document.getElementById('grid').addEventListener('input',recompute); recompute();
   document.getElementById('saveGrid').onclick=async()=>{
     const byMonth={};
     document.querySelectorAll('#grid .cell').forEach(i=>{(byMonth[i.dataset.m]=byMonth[i.dataset.m]||{})[i.dataset.k]=num(i.value);});
-    const ups=[];
-    Object.entries(byMonth).forEach(([m,o])=>{ if(Object.values(o).some(v=>v!==0)) ups.push({...o,farm_id:state.farmId,ym:ym(+m)}); });
+    const ups=[]; Object.entries(byMonth).forEach(([m,o])=>{ if(Object.values(o).some(x=>x!==0)) ups.push({...o,farm_id:state.farmId,ym:ym(+m)}); });
     if(!ups.length){toast('입력된 값이 없습니다');return;}
     const {error}=await sb.from(d.table).upsert(ups,{onConflict:'farm_id,ym'});
-    if(error){toast('저장 실패: '+error.message,true);return;}
-    toast(`${ups.length}개월 저장되었습니다`);
+    if(error){toast('저장 실패: '+error.message,true);return;} toast(`${ups.length}개월 저장되었습니다`);
   };
 }
 
@@ -263,12 +287,12 @@ async function viewDash(){
   const H={},F={},E={}; (h.data||[]).forEach(r=>H[+r.ym.slice(5,7)]=r);(f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);(e.data||[]).forEach(r=>E[+r.ym.slice(5,7)]=r);
   const S={}; MONTHS.forEach(m=>S[m]={head:0,amt:0}); (sh.data||[]).forEach(r=>{const m=+(r.ship_date||'').slice(5,7);if(S[m]){S[m].head+=num(r.head);S[m].amt+=num(r.amount);}});
   const feedKeys=['preg','lactating','gilt','f1','f2','f3','fchange','suckle','grow','finish'];
-  const expKeys=DEF.exp.cols.map(c=>c.k);
+  const expKeys=DEF.exp.cols.filter(c=>c.k).map(c=>c.k);
   let T_sows=0,T_ship=0,T_amt=0,T_feedkg=0,T_feedc=0,T_exp=0,T_net=0;
   const rowsHtml=MONTHS.map(m=>{
     const hr=H[m]||{},fr=F[m]||{},er=E[m]||{};
     const sows=num(hr.preg)+num(hr.lactating);
-    const total=sows+num(hr.boar)+num(hr.gilt)+num(hr.suckling)+num(hr.weaned)+num(hr.growing)+num(hr.finishing);
+    const total=sows+num(hr.boar)+num(hr.gilt_female)+num(hr.gilt_male)+num(hr.suckling)+num(hr.weaned)+num(hr.growing)+num(hr.finishing);
     const fkg=feedKeys.reduce((s,k)=>s+num(fr[k]),0), fc=num(fr.feed_cost);
     const ex=expKeys.reduce((s,k)=>s+num(er[k]),0);
     const sHead=S[m].head,sAmt=S[m].amt, net=sAmt-fc-ex;
