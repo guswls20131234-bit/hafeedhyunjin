@@ -58,6 +58,8 @@
   .cell:hover{border-color:var(--line)} .cell:focus{border-color:var(--brand);background:#fff;outline:none}
   td.calc{background:#f3f6f3;color:var(--muted);font-weight:700}
   tr.tot td.calc{background:#e6efe6;color:var(--brand-d)}
+  .gsep{border-left:2px solid #aebcae}
+  thead th.grp{background:#e9efe8;color:var(--brand-d);font-weight:800;text-align:center}
   .gridfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
   .empty{text-align:center;color:var(--muted);padding:50px 20px} .empty .big{font-size:34px;margin-bottom:10px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:11px;font-weight:600;font-size:13px;opacity:0;transition:.25s;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.25)}
@@ -137,10 +139,15 @@ const MONTHS=[1,2,3,4,5,6,7,8,9,10,11,12];
 const fmt=n=>n==null||n===''||isNaN(n)?'-':Math.round(n).toLocaleString('ko-KR');
 const fmt1=n=>n==null||isNaN(n)?'-':Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1,minimumFractionDigits:1});
 const num=v=>{const x=parseFloat(String(v).replace(/,/g,''));return isNaN(x)?0:x;};
+function commafy(s){s=String(s).replace(/,/g,'').trim(); if(s===''||isNaN(s))return s;
+  const neg=s[0]==='-'; if(neg)s=s.slice(1); const p=s.split('.'); p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,','); return (neg?'-':'')+p.join('.');}
+const fmtCells=()=>document.querySelectorAll('#grid .cell').forEach(el=>el.value=commafy(el.value));
 const ym=m=>`${state.year}-${String(m).padStart(2,'0')}`;
 
 async function boot(){
   renderTabs();
+  document.addEventListener('focusin',e=>{if(e.target.classList&&e.target.classList.contains('cell'))e.target.value=e.target.value.replace(/,/g,'');});
+  document.addEventListener('focusout',e=>{if(e.target.classList&&e.target.classList.contains('cell'))e.target.value=commafy(e.target.value);});
   const y=new Date().getFullYear(), ys=document.getElementById('yearSel');
   for(let v=y+1;v>=y-5;v--) ys.insertAdjacentHTML('beforeend',`<option value="${v}" ${v===y?'selected':''}>${v}년</option>`);
   ys.onchange=e=>{state.year=+e.target.value;render();};
@@ -249,7 +256,7 @@ async function viewGrid(key){
         if(el.value.trim()!==''&&num(el.value)>0){w+=num(el.value);n++;ss+=(sows[m]||0);}});
       const as=n?ss/n:0; document.getElementById('psyVal').textContent= as?fmt1((w/as)*(12/n)):'-';}
   };
-  document.getElementById('grid').addEventListener('input',recompute); recompute();
+  document.getElementById('grid').addEventListener('input',recompute); recompute(); fmtCells();
   document.getElementById('saveGrid').onclick=async()=>{
     const byMonth={};
     document.querySelectorAll('#grid .cell').forEach(i=>{(byMonth[i.dataset.m]=byMonth[i.dataset.m]||{})[i.dataset.k]=num(i.value);});
@@ -283,13 +290,16 @@ async function viewFeed(){
   const u=state.feedUnit, cols=feedCols(u), inCols=cols.filter(c=>c.k);
   const {data}=await sb.from(T.feed).select('*').eq('farm_id',state.farmId).like('ym',`${state.year}-%`);
   const byM={}; (data||[]).forEach(r=>byM[+r.ym.slice(5,7)]=r);
-  const head=`<th>월</th>`+cols.map(c=>`<th>${c.l}</th>`).join('');
+  const uL=u==='won'?'원':'KG';
+  const sepOf=c=>(c.k===('f1_'+u)||c.calc==='all')?' gsep':'';
+  const head=`<tr><th rowspan="2">월</th><th colspan="4" class="grp">번식돈</th><th colspan="8" class="grp gsep">비육돈</th><th rowspan="2" class="grp gsep">합계(${uL})</th></tr>`+
+    `<tr>${cols.slice(0,-1).map(c=>`<th class="${sepOf(c).trim()}">${c.l}</th>`).join('')}</tr>`;
   const body=MONTHS.map(m=>{const r=byM[m]||{};
     return `<tr><td class="mcol">${m}월</td>`+cols.map(c=> c.calc
-      ? `<td class="calc" data-m="${m}" data-calc="${c.calc}">-</td>`
-      : `<td><input class="cell" data-m="${m}" data-k="${c.k}" value="${r[c.k]?r[c.k]:''}" inputmode="numeric"></td>`
+      ? `<td class="calc${sepOf(c)}" data-m="${m}" data-calc="${c.calc}">-</td>`
+      : `<td class="${sepOf(c).trim()}"><input class="cell" data-m="${m}" data-k="${c.k}" value="${r[c.k]?r[c.k]:''}" inputmode="numeric"></td>`
     ).join('')+`</tr>`;}).join('');
-  const aggRow=(label,attr)=>`<tr class="tot"><td class="mcol">${label}</td>`+cols.map(c=>`<td ${c.calc?'class="calc"':''} data-${attr}="${c.calc||c.k}">-</td>`).join('')+`</tr>`;
+  const aggRow=(label,attr)=>`<tr class="tot"><td class="mcol">${label}</td>`+cols.map(c=>`<td class="${(c.calc?'calc':'')+sepOf(c)}" data-${attr}="${c.calc||c.k}">-</td>`).join('')+`</tr>`;
   const tog=(k,l)=>`<button class="btn ${u===k?'primary':''}" data-unit="${k}" style="padding:6px 13px">${l}</button>`;
   document.getElementById('view').innerHTML=`<div class="card">
     <div class="hd"><h2>사료소모량 분석</h2><span class="sub">${state.year}년</span>
@@ -297,7 +307,7 @@ async function viewFeed(){
       <span style="display:flex;gap:4px">${tog('kg','kg')}${tog('won','금액')}</span>
       <button class="btn" id="upLedger">📂 거래원장 업로드</button>
       <input type="file" id="ledgerFile" accept=".xlsx,.xls" style="display:none"></div>
-    <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead>
+    <div class="tablewrap"><table id="grid"><thead>${head}</thead>
       <tbody>${body}${aggRow('합계','tot')}${aggRow('평균','avg')}${aggRow('%','pct')}</tbody></table></div>
     <div class="gridfoot"><span class="hint">흰 칸 입력 또는 거래원장 업로드 → 소계·합계·%는 자동 계산</span>
       <button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>
@@ -322,7 +332,7 @@ async function viewFeed(){
       const val=c.calc?ctS[c.calc]:sumK[c.k]; cell.textContent= base?fmt1(val/base*100):'-';});
     renderFeedCost(byM);
   };
-  document.getElementById('grid').addEventListener('input',recompute); recompute();
+  document.getElementById('grid').addEventListener('input',recompute); recompute(); fmtCells();
   document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{state.feedUnit=b.dataset.unit;viewFeed();});
   document.getElementById('upLedger').onclick=()=>document.getElementById('ledgerFile').click();
   document.getElementById('ledgerFile').onchange=e=>{const f=e.target.files[0]; if(f)parseLedger(f); e.target.value='';};
@@ -345,12 +355,12 @@ function renderFeedCost(byM){
   if(!rows.length){el.innerHTML='';return;}
   const S=k=>rows.reduce((s,r)=>s+r[k],0), up=(w,k)=>k?w/k:0;
   const cells=r=>`<td>${fmt(r.bKg)}</td><td>${fmt(r.bWon)}</td><td>${fmt(up(r.bWon,r.bKg))}</td>
-    <td>${fmt(r.gKg)}</td><td>${fmt(r.gWon)}</td><td>${fmt(up(r.gWon,r.gKg))}</td>
-    <td>${fmt(r.tKg)}</td><td>${fmt(r.tWon)}</td><td>${fmt(up(r.tWon,r.tKg))}</td>`;
+    <td class="gsep">${fmt(r.gKg)}</td><td>${fmt(r.gWon)}</td><td>${fmt(up(r.gWon,r.gKg))}</td>
+    <td class="gsep">${fmt(r.tKg)}</td><td>${fmt(r.tWon)}</td><td>${fmt(up(r.tWon,r.tKg))}</td>`;
   el.innerHTML=`<div class="card" style="margin-top:18px"><div class="hd"><h2>사료비 분석</h2><span class="sub">${state.year}년 · 단가 = 금액 ÷ 사료량</span></div>
     <div class="tablewrap"><table>
-    <thead><tr><th rowspan="2">월</th><th colspan="3">번식돈</th><th colspan="3">비육돈</th><th colspan="3">합계</th></tr>
-    <tr><th>사료량</th><th>금액(원)</th><th>단가</th><th>사료량</th><th>금액(원)</th><th>단가</th><th>사료량</th><th>금액(원)</th><th>단가/kg</th></tr></thead>
+    <thead><tr><th rowspan="2">월</th><th colspan="3" class="grp">번식돈</th><th colspan="3" class="grp gsep">비육돈</th><th colspan="3" class="grp gsep">합계</th></tr>
+    <tr><th>사료량</th><th>금액(원)</th><th>단가</th><th class="gsep">사료량</th><th>금액(원)</th><th>단가</th><th class="gsep">사료량</th><th>금액(원)</th><th>단가/kg</th></tr></thead>
     <tbody>${rows.map(r=>`<tr><td class="mcol">${r.m}월</td>${cells(r)}</tr>`).join('')}
     <tr class="tot"><td class="mcol">합계</td>${cells({bKg:S('bKg'),bWon:S('bWon'),gKg:S('gKg'),gWon:S('gWon'),tKg:S('tKg'),tWon:S('tWon')})}</tr>
     </tbody></table></div></div>`;
