@@ -123,7 +123,7 @@
 </div></div>
 
 <script>
-const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses'};
+const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses',fc:'mgmt_forecast'};
 const LS='pigfarm_cfg';
 let sb=null, cfg={url:'',key:''};
 try{ cfg=JSON.parse(localStorage.getItem(LS))||cfg; }catch(e){}
@@ -134,14 +134,14 @@ const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedU
 const FEED_REPRO=[['preg','임신돈'],['lactating','포유돈'],['gilt','후보돈']];
 const FEED_FATTEN=[['f1','1호'],['f2','2호'],['f3','3호'],['fchange','체인지'],['suckle','젖먹이'],['grow','육성'],['finish','비육']];
 const FEED_ALL=[...FEED_REPRO,...FEED_FATTEN];
-const TABS=[['dash','대시보드'],['head','상시두수'],['breed','번식성적'],['feed','사료'],['ship','출하현황'],['perf','출하성적'],['exp','운영경비']];
+const TABS=[['dash','대시보드'],['head','상시두수'],['breed','번식성적'],['feed','사료'],['ship','출하현황'],['perf','출하성적'],['fc','출하예측'],['exp','운영경비']];
 const MONTHS=[1,2,3,4,5,6,7,8,9,10,11,12];
 const fmt=n=>n==null||n===''||isNaN(n)?'-':Math.round(n).toLocaleString('ko-KR');
 const fmt1=n=>n==null||isNaN(n)?'-':Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1,minimumFractionDigits:1});
 const num=v=>{const x=parseFloat(String(v).replace(/,/g,''));return isNaN(x)?0:x;};
 function commafy(s){s=String(s).replace(/,/g,'').trim(); if(s===''||isNaN(s))return s;
   const neg=s[0]==='-'; if(neg)s=s.slice(1); const p=s.split('.'); p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,','); return (neg?'-':'')+p.join('.');}
-const fmtCells=()=>document.querySelectorAll('#grid .cell').forEach(el=>el.value=commafy(el.value));
+const fmtCells=()=>document.querySelectorAll('.cell').forEach(el=>{if(el.tagName==='INPUT')el.value=commafy(el.value);});
 const ym=m=>`${state.year}-${String(m).padStart(2,'0')}`;
 
 async function boot(){
@@ -172,7 +172,7 @@ function render(){
   const v=document.getElementById('view');
   if(!sb){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔌</div>Supabase에 아직 연결되지 않았습니다.<br>우측 상단 ⚙️ 에서 URL과 anon key를 입력하세요.</div></div></div>`;return;}
   if(!state.farmId){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🏡</div>등록된 거래처(농장)가 없습니다.<br>우측 상단 <b>+ 농장</b> 으로 추가하세요.</div></div></div>`;return;}
-  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,exp:()=>viewGrid('exp')})[state.tab]();
+  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,fc:viewForecast,exp:()=>viewGrid('exp')})[state.tab]();
 }
 function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div class="k">${k}</div><div class="v">${v} <small>${unit||''}</small></div></div>`;}
 
@@ -512,6 +512,69 @@ async function viewPerf(){
       ${rows.map(r=>`<tr><td class="mcol">${r.m}월</td>${cell(r)}</tr>`).join('')||`<tr><td colspan="10" class="empty">${y}년 데이터가 없습니다. 출하현황·사료 탭을 먼저 입력하세요.</td></tr>`}
       ${rows.length?`<tr class="tot"><td class="mcol">합계</td>${cell(tot)}</tr>`:''}
       </tbody></table></div></div>`;
+}
+
+/* ---------- 출하예측 (목표 기반 손익예측) ---------- */
+const FC_DEF={birthRate:90,weanPerLitter:13,growSurv:95,fatSurv:95,avgWeight:115,feedPerKg:3.2,feedCostPerKg:630,opCost:0};
+async function viewForecast(){
+  const y=state.year, fid=state.farmId;
+  const {data}=await sb.from(T.fc).select('data').eq('farm_id',fid).eq('year',y).maybeSingle();
+  const saved=(data&&data.data)||{};
+  const t={...FC_DEF,...(saved.t||{})};
+  const mating=saved.mating||Array(12).fill(''), price=saved.price||Array(12).fill('');
+  const f=(id,label,val,unit)=>`<div class="field"><label>${label}${unit?` (${unit})`:''}</label><input class="inp cell" id="${id}" value="${val}" inputmode="numeric"></div>`;
+  const targetFields=
+    f('fc_birthRate','분만율',t.birthRate,'%')+
+    f('fc_weanPerLitter','두당이유자돈수',t.weanPerLitter,'두')+
+    f('fc_growSurv','이유~육성기 육성율',t.growSurv,'%')+
+    f('fc_fatSurv','비육기 육성율',t.fatSurv,'%')+
+    f('fc_avgWeight','평균출하체중',t.avgWeight,'kg')+
+    f('fc_feedPerKg','두당사료량(FCR)',t.feedPerKg,'')+
+    f('fc_feedCostPerKg','사료비단가',t.feedCostPerKg,'원/kg')+
+    f('fc_opCost','운영경비(월)',t.opCost,'원');
+  document.getElementById('view').innerHTML=`
+    <div class="card"><div class="hd"><h2>출하예측 · 목표 설정</h2><span class="sub">${y}년 · 목표값을 넣으면 월별 손익이 계산됩니다</span></div>
+      <div class="bd" style="padding:18px"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${targetFields}</div></div></div>`;
+  const body=MONTHS.map(m=>{const i=m-1;
+    return `<tr><td class="mcol">${m}월</td>
+      <td><input class="cell fcin" data-k="mating" data-i="${i}" value="${mating[i]||''}" inputmode="numeric"></td>
+      <td><input class="cell fcin" data-k="price" data-i="${i}" value="${price[i]||''}" inputmode="numeric"></td>
+      <td class="calc" data-o="head">-</td><td class="calc" data-o="rev">-</td><td class="calc" data-o="fkg">-</td>
+      <td class="calc" data-o="fcost">-</td><td class="calc" data-o="fprofit">-</td><td class="calc" data-o="op">-</td><td class="calc" data-o="net">-</td></tr>`;}).join('');
+  document.getElementById('view').insertAdjacentHTML('beforeend',`
+    <div class="card" style="margin-top:18px"><div class="hd"><h2>월별 손익 예측</h2><span class="sub">${y}년 · 종부두수=10달전 종부 기준</span></div>
+      <div class="tablewrap"><table id="grid"><thead><tr>
+        <th>월</th><th>10달전종부두수</th><th>예상돈가(원/kg)</th><th>출하예상두수</th><th>예상매출액</th><th>사료량(kg)</th><th>사료비</th><th>사료비공제수익</th><th>운영경비</th><th>순이익</th>
+      </tr></thead><tbody>${body}
+        <tr class="tot"><td class="mcol">합계</td><td data-s="mating">-</td><td>-</td><td data-s="head">-</td><td data-s="rev">-</td><td data-s="fkg">-</td><td data-s="fcost">-</td><td data-s="fprofit">-</td><td data-s="op">-</td><td data-s="net">-</td></tr>
+      </tbody></table></div>
+      <div class="gridfoot"><span class="hint">목표·종부두수·예상돈가 입력 → 손익 자동 계산</span><button class="btn primary" id="saveFc">${y}년 저장</button></div></div>`);
+
+  const getT=()=>({birthRate:num(fc_birthRate.value),weanPerLitter:num(fc_weanPerLitter.value),growSurv:num(fc_growSurv.value),
+    fatSurv:num(fc_fatSurv.value),avgWeight:num(fc_avgWeight.value),feedPerKg:num(fc_feedPerKg.value),
+    feedCostPerKg:num(fc_feedCostPerKg.value),opCost:num(fc_opCost.value)});
+  const recompute=()=>{
+    const t=getT(); const sum={head:0,rev:0,fkg:0,fcost:0,fprofit:0,op:0,net:0,mating:0};
+    MONTHS.forEach(m=>{const i=m-1;
+      const mat=num(document.querySelector(`#grid .fcin[data-k="mating"][data-i="${i}"]`).value);
+      const pr=num(document.querySelector(`#grid .fcin[data-k="price"][data-i="${i}"]`).value);
+      const head=mat*(t.birthRate/100)*t.weanPerLitter*(t.growSurv/100)*(t.fatSurv/100);
+      const rev=t.avgWeight*head*pr, fkg=head*t.avgWeight*t.feedPerKg, fcost=fkg*t.feedCostPerKg;
+      const fprofit=rev-fcost, op=t.opCost, net=fprofit-op;
+      const row=document.querySelectorAll(`#grid tbody tr`)[i];
+      const set=(o,val)=>row.querySelector(`[data-o="${o}"]`).textContent= val?fmt(val):'-';
+      set('head',head);set('rev',rev);set('fkg',fkg);set('fcost',fcost);set('fprofit',fprofit);set('op',op);set('net',net);
+      sum.mating+=mat;sum.head+=head;sum.rev+=rev;sum.fkg+=fkg;sum.fcost+=fcost;sum.fprofit+=fprofit;sum.op+=op;sum.net+=net;});
+    Object.keys(sum).forEach(k=>{const c=document.querySelector(`#grid [data-s="${k}"]`); if(c)c.textContent= sum[k]?fmt(sum[k]):'-';});
+  };
+  document.getElementById('view').addEventListener('input',recompute); recompute(); fmtCells();
+  document.getElementById('saveFc').onclick=async()=>{
+    const matArr=MONTHS.map(m=>num(document.querySelector(`#grid .fcin[data-k="mating"][data-i="${m-1}"]`).value));
+    const prArr=MONTHS.map(m=>num(document.querySelector(`#grid .fcin[data-k="price"][data-i="${m-1}"]`).value));
+    const payload={farm_id:fid,year:y,data:{t:getT(),mating:matArr,price:prArr},updated_at:new Date().toISOString()};
+    const {error}=await sb.from(T.fc).upsert(payload,{onConflict:'farm_id,year'});
+    if(error){toast('저장 실패: '+error.message,true);return;} toast('저장되었습니다');
+  };
 }
 
 /* ---------- 대시보드 (연간 월별 요약) ---------- */
