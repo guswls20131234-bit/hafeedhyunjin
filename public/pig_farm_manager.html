@@ -278,10 +278,17 @@ async function viewGrid(key){
     MONTHS.forEach(m=>svg+=`<text x="${sx(m)}" y="${H-pB+14}" font-size="9" text-anchor="middle" fill="#999">${m}</text>`);
     series.forEach(s=>{const pts=s.vals.map((v,i)=>({m:i+1,v})).filter(p=>p.v>0);
       if(pts.length)svg+=`<path d="${pts.map((p,i)=>(i?'L':'M')+sx(p.m).toFixed(1)+' '+sy(p.v).toFixed(1)).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
-      pts.forEach(p=>svg+=`<circle cx="${sx(p.m)}" cy="${sy(p.v)}" r="3" fill="${s.color}"/>`);});
+      pts.forEach(p=>{svg+=`<circle cx="${sx(p.m)}" cy="${sy(p.v)}" r="3.5" fill="${s.color}"/>`+
+        `<circle class="pt" cx="${sx(p.m)}" cy="${sy(p.v)}" r="11" fill="transparent" style="cursor:pointer" data-l="${s.l}" data-m="${p.m}" data-v="${p.v}"><title>${s.l} ${p.m}월 · ${fmt(p.v)}두</title></circle>`;});});
     svg+=`</svg>`;
     const leg=series.map(s=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px"><span style="width:10px;height:10px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.l}</span>`).join('');
-    area.innerHTML=svg+`<div style="margin-top:6px">${leg}</div>`;
+    area.innerHTML=`<div style="position:relative">${svg}<div id="ctip" style="position:absolute;display:none;pointer-events:none;background:#1a1a18;color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-140%);z-index:5"></div></div><div style="margin-top:6px">${leg}</div>`;
+    const wrap=area.firstChild, tip=wrap.querySelector('#ctip');
+    const place=e=>{const r=wrap.getBoundingClientRect(); tip.style.left=(e.clientX-r.left)+'px'; tip.style.top=(e.clientY-r.top)+'px';};
+    wrap.querySelectorAll('circle.pt').forEach(c=>{
+      c.addEventListener('mouseenter',e=>{tip.textContent=`${c.dataset.l} ${c.dataset.m}월 · ${fmt(+c.dataset.v)}두`;tip.style.display='block';place(e);});
+      c.addEventListener('mousemove',place);
+      c.addEventListener('mouseleave',()=>tip.style.display='none');});
   }
   document.getElementById('grid').addEventListener('input',recompute);
   if(d.chart){
@@ -326,6 +333,11 @@ async function viewFeed(){
   const u=state.feedUnit, cols=feedCols(u), inCols=cols.filter(c=>c.k);
   const {data}=await sb.from(T.feed).select('*').eq('farm_id',state.farmId).like('ym',`${state.year}-%`);
   const byM={}; (data||[]).forEach(r=>byM[+r.ym.slice(5,7)]=r);
+  const [hd,shp]=await Promise.all([
+    sb.from(T.head).select('*').eq('farm_id',state.farmId).like('ym',`${state.year}-%`),
+    sb.from(T.ship).select('*').eq('farm_id',state.farmId).gte('ship_date',`${state.year}-01-01`).lte('ship_date',`${state.year}-12-31`)]);
+  const hByM={}; (hd.data||[]).forEach(r=>hByM[+r.ym.slice(5,7)]=r);
+  const sAgg=aggShipByMonth(shp.data||[]);
   const uL=u==='won'?'원':'KG';
   const sepOf=c=>(c.k===('f1_'+u)||c.calc==='all')?' gsep':'';
   const head=`<tr><th rowspan="2">월</th><th colspan="4" class="grp">번식돈</th><th colspan="8" class="grp gsep">비육돈</th><th rowspan="2" class="grp gsep">합계(${uL})</th></tr>`+
@@ -347,7 +359,7 @@ async function viewFeed(){
       <tbody>${body}${aggRow('합계','tot')}${aggRow('평균','avg')}${aggRow('%','pct')}</tbody></table></div>
     <div class="gridfoot"><span class="hint">흰 칸 입력 또는 거래원장 업로드 → 소계·합계·%는 자동 계산</span>
       <button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>
-    <div id="feedCost"></div>`;
+    <div id="feedCost"></div><div id="feedSummary"></div>`;
   const recompute=()=>{
     const sumK={},cntK={}; inCols.forEach(c=>{sumK[c.k]=0;cntK[c.k]=0;});
     MONTHS.forEach(m=>{const raw={};
@@ -369,6 +381,7 @@ async function viewFeed(){
     renderFeedCost(byM);
   };
   document.getElementById('grid').addEventListener('input',recompute); recompute(); fmtCells();
+  renderFeedSummary(byM,hByM,sAgg);
   document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{state.feedUnit=b.dataset.unit;viewFeed();});
   document.getElementById('upLedger').onclick=()=>document.getElementById('ledgerFile').click();
   document.getElementById('ledgerFile').onchange=e=>{const f=e.target.files[0]; if(f)parseLedger(f); e.target.value='';};
@@ -379,6 +392,63 @@ async function viewFeed(){
     const {error}=await sb.from(T.feed).upsert(ups,{onConflict:'farm_id,ym'});
     if(error){toast('저장 실패: '+error.message,true);return;} toast(`${ups.length}개월 저장되었습니다`);
   };
+}
+
+function renderFeedSummary(byM,hByM,sAgg){
+  const el=document.getElementById('feedSummary'); if(!el)return;
+  const daysIn=m=>new Date(state.year,m,0).getDate();
+  const rows=MONTHS.map(m=>{
+    const fr=byM[m]; const s=sAgg[m]||{head:0,kg:0}; const hr=hByM[m]||{};
+    const kg=b=>num(fr&&fr[b+'_kg']), won=b=>num(fr&&fr[b+'_won']);
+    const bansik=kg('preg')+kg('lactating')+kg('gilt');
+    const gat=kg('f1')+kg('f2')+kg('f3'); const jeot=kg('fchange')+kg('suckle'); const yuk=kg('grow')+kg('finish');
+    const biyuk=gat+jeot+yuk; const tot=bansik+biyuk;
+    const totWon=FEED_ALL.reduce((x,[b])=>x+won(b),0);
+    const sHead=s.head||0, sKg=s.kg||0;
+    const hBiyuk=num(hr.suckling)+num(hr.weaned)+num(hr.growing)+num(hr.finishing);
+    const hBansik=num(hr.preg)+num(hr.lactating)+num(hr.boar)+num(hr.gilt_female)+num(hr.gilt_male);
+    const hTot=hBiyuk+hBansik; const d=daysIn(m);
+    if(!(tot||totWon||sHead||hTot))return null;
+    return {m,sHead,avgW:sHead?sKg/sHead:0,
+      moP:tot?bansik/tot*100:0,gatP:tot?gat/tot*100:0,jeotP:tot?jeot/tot*100:0,yukP:tot?yuk/tot*100:0,
+      pYuk:sHead?biyuk/sHead:0,pMo:sHead?bansik/sHead:0,pTot:sHead?tot/sHead:0,pWon:sHead?totWon/sHead:0,
+      hBiyuk,hBansik,hTot,d,
+      dBiyuk:(hBiyuk*d)?biyuk/(hBiyuk*d):0,dBansik:(hBansik*d)?bansik/(hBansik*d):0,dTot:(hTot*d)?tot/(hTot*d):0,
+      eBiyuk:sKg?biyuk/sKg:0,eTot:sKg?tot/sKg:0,
+      _bansik:bansik,_biyuk:biyuk,_tot:tot,_won:totWon,_sKg:sKg};
+  }).filter(Boolean);
+  if(!rows.length){el.innerHTML='';return;}
+  const S=k=>rows.reduce((s,r)=>s+(r[k]||0),0);
+  const mean=k=>{const v=rows.filter(r=>r[k]); return v.length?v.reduce((s,r)=>s+r[k],0)/v.length:0;};
+  const ShipH=S('sHead'), ShipKg=S('_sKg'), Bansik=S('_bansik'), Biyuk=S('_biyuk'), Tot=S('_tot'), Won=S('_won');
+  const r1=(v)=>v?fmt1(v):'-', r0=(v)=>v?fmt(Math.round(v)):'-', r2=(v)=>v?v.toFixed(2):'-';
+  const cells=r=>`<td>${fmt(r.sHead)}</td><td>${r0(r.avgW)}</td>
+    <td class="gsep">${r1(r.moP)}</td><td>${r1(r.gatP)}</td><td>${r1(r.jeotP)}</td><td>${r1(r.yukP)}</td>
+    <td class="gsep">${r0(r.pYuk)}</td><td>${r0(r.pMo)}</td><td>${r0(r.pTot)}</td>
+    <td class="gsep">${fmt(Math.round(r.pWon))}</td>
+    <td class="gsep">${fmt(r.hBiyuk)}</td><td>${fmt(r.hBansik)}</td><td>${fmt(r.hTot)}</td>
+    <td class="gsep">${fmt(r.d)}</td>
+    <td class="gsep">${r2(r.dBiyuk)}</td><td>${r2(r.dBansik)}</td><td>${r2(r.dTot)}</td>
+    <td class="gsep">${r2(r.eBiyuk)}</td><td>${r2(r.eTot)}</td>`;
+  const avgCells=`<td>${r0(ShipH/rows.length)}</td><td>${r0(ShipH?ShipKg/ShipH:0)}</td>
+    <td class="gsep">${r1(mean('moP'))}</td><td>${r1(mean('gatP'))}</td><td>${r1(mean('jeotP'))}</td><td>${r1(mean('yukP'))}</td>
+    <td class="gsep">${r0(ShipH?Biyuk/ShipH:0)}</td><td>${r0(ShipH?Bansik/ShipH:0)}</td><td>${r0(ShipH?Tot/ShipH:0)}</td>
+    <td class="gsep">${fmt(Math.round(ShipH?Won/ShipH:0))}</td>
+    <td class="gsep">${fmt(Math.round(mean('hBiyuk')))}</td><td>${fmt(Math.round(mean('hBansik')))}</td><td>${fmt(Math.round(mean('hTot')))}</td>
+    <td class="gsep">${r1(mean('d'))}</td>
+    <td class="gsep">${r2(mean('dBiyuk'))}</td><td>${r2(mean('dBansik'))}</td><td>${r2(mean('dTot'))}</td>
+    <td class="gsep">${r2(ShipKg?Biyuk/ShipKg:0)}</td><td>${r2(ShipKg?Tot/ShipKg:0)}</td>`;
+  el.innerHTML=`<div class="card" style="margin-top:18px"><div class="hd"><h2>사료종합</h2><span class="sub">${state.year}년 · 종합성적(사료)</span></div>
+    <div class="tablewrap"><table>
+    <thead>
+      <tr><th rowspan="3">월</th><th rowspan="3">출하<br>두수</th><th rowspan="3">평균<br>체중</th><th colspan="4" class="grp gsep">월간 사료사용비율</th><th colspan="3" class="grp gsep">출하두당 사료량</th><th rowspan="3" class="gsep">출하두당<br>사료비</th><th colspan="3" class="grp gsep">상시두수</th><th rowspan="3" class="gsep">일수</th><th colspan="3" class="grp gsep">두당 일사료섭취</th><th colspan="2" class="grp gsep">사료효율</th></tr>
+      <tr><th class="gsep">모돈%</th><th>갓돈%</th><th>젖돈%</th><th>육돈%</th><th class="gsep">육돈</th><th>모돈</th><th>합계</th><th class="gsep">비육돈</th><th>번식돈</th><th>총두수</th><th class="gsep">비육돈</th><th>번식돈</th><th>합계</th><th class="gsep">비육돈</th><th>총</th></tr>
+      <tr style="display:none"></tr>
+    </thead>
+    <tbody>${rows.map(r=>`<tr><td class="mcol">${r.m}월</td>${cells(r)}</tr>`).join('')}
+    <tr class="tot"><td class="mcol">평균</td>${avgCells}</tr>
+    </tbody></table></div>
+    <div class="gridfoot"><span class="hint">상시두수·출하 데이터와 연동 · 모돈%=번식소계, 갓돈%=1·2·3호, 젖돈%=체인지·젖먹이, 육돈%=육성·비육</span></div></div>`;
 }
 
 function renderFeedCost(byM){
