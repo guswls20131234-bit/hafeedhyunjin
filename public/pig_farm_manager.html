@@ -189,7 +189,10 @@ function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div c
 
 /* ---------- 월별 그리드 정의 ---------- */
 const DEF={
-  head:{table:T.head,title:'상시두수',cols:[
+  head:{table:T.head,title:'상시두수',avgRow:true,noSum:true,chart:true,
+    chartSeries:[{ref:'tot',l:'총계'},{ref:'mo',l:'모돈계'},{ref:'breed',l:'번식돈계'},{ref:'feed',l:'비육돈계'},
+      {ref:'preg',l:'임신돈'},{ref:'lactating',l:'포유돈'},{ref:'boar',l:'웅돈'},{ref:'gilt_female',l:'후보돈♀'},{ref:'gilt_male',l:'후보돈♂'},
+      {ref:'suckling',l:'포유자돈'},{ref:'weaned',l:'이유자돈'},{ref:'growing',l:'육성돈'},{ref:'finishing',l:'비육돈'}],cols:[
     {k:'preg',l:'임신돈'},{k:'lactating',l:'포유돈'},
     {calc:'mo',l:'모돈계',fn:v=>v('preg')+v('lactating')},
     {k:'boar',l:'웅돈'},{k:'gilt_female',l:'후보돈♀'},{k:'gilt_male',l:'후보돈♂'},
@@ -227,11 +230,15 @@ async function viewGrid(key){
   const psyHtml=d.psy?`<span class="hint">PSY (연간환산·상시모돈 기준 추정): <b id="psyVal" style="color:var(--brand);font-size:15px">-</b></span>`:`<span class="hint">값이 하나도 없는 달은 저장하지 않습니다.</span>`;
   document.getElementById('view').innerHTML=`<div class="card">
     <div class="hd"><h2>${d.title}</h2><span class="sub">${state.year}년 · 흰 칸 입력 → 회색 칸 자동 계산</span></div>
-    <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead><tbody>${body}${aggRow('합계','tot')}${d.avgRow?aggRow('평균','avg'):''}</tbody></table></div>
-    <div class="gridfoot">${psyHtml}<button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>`;
+    <div class="tablewrap"><table id="grid"><thead><tr>${head}</tr></thead><tbody>${body}${d.noSum?'':aggRow('합계','tot')}${d.avgRow?aggRow('평균','avg'):''}</tbody></table></div>
+    <div class="gridfoot">${psyHtml}<button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>`+
+    (d.chart?`<div class="card" style="margin-top:18px"><div class="hd"><h2>월별 추이</h2><span class="sub">항목을 골라 비교 (여러 개 선택 가능)</span></div>
+      <div class="bd" style="padding:14px 18px"><div id="chartChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div><div id="chartArea"></div></div></div>`:'');
 
+  let lastMD={};
   const recompute=()=>{
     const sumK={},cntK={}; inCols.forEach(c=>{sumK[c.k]=0;cntK[c.k]=0;});
+    const MD={};
     MONTHS.forEach(m=>{
       const raw={};
       inCols.forEach(c=>{const el=document.querySelector(`#grid .cell[data-m="${m}"][data-k="${c.k}"]`);
@@ -239,7 +246,9 @@ async function viewGrid(key){
       const cv={}; const v=k=>(k in raw)?raw[k]:((k in cv)?cv[k]:0);
       cols.forEach(c=>{if(c.calc){cv[c.calc]=c.fn(v);
         document.querySelector(`#grid .calc[data-m="${m}"][data-calc="${c.calc}"]`).textContent=showVal(c,cv[c.calc]);}});
+      MD[m]={...raw,...cv};
     });
+    lastMD=MD;
     const avgK={}; inCols.forEach(c=>avgK[c.k]=cntK[c.k]?sumK[c.k]/cntK[c.k]:0);
     const ctS={}; const tvS=k=>(k in sumK)?sumK[k]:((k in ctS)?ctS[k]:0);
     cols.forEach(c=>{const cell=document.querySelector(`#grid [data-tot="${c.calc||c.k}"]`); if(!cell)return;
@@ -253,8 +262,37 @@ async function viewGrid(key){
       MONTHS.forEach(m=>{const el=document.querySelector(`#grid .cell[data-m="${m}"][data-k="weaned_total"]`);
         if(el.value.trim()!==''&&num(el.value)>0){w+=num(el.value);n++;ss+=(sows[m]||0);}});
       const as=n?ss/n:0; document.getElementById('psyVal').textContent= as?fmt1((w/as)*(12/n)):'-';}
+    if(d.chart) drawTrend();
   };
-  document.getElementById('grid').addEventListener('input',recompute); recompute(); fmtCells();
+  function drawTrend(){
+    const area=document.getElementById('chartArea'); if(!area)return;
+    const PAL=['#2f6f4f','#c8842b','#3d6fb4','#b6453a','#7b3fab','#1d9e75','#d98c00','#5f5e5a','#e24b4a','#378add','#0aa37a','#a32d2d','#9aa39a'];
+    const colorOf=ref=>PAL[Math.max(0,d.chartSeries.findIndex(s=>s.ref===ref))%PAL.length];
+    const sel=state.chartSel[key];
+    const series=sel.map(ref=>({ref,l:(d.chartSeries.find(s=>s.ref===ref)||{}).l,color:colorOf(ref),vals:MONTHS.map(m=>num((lastMD[m]||{})[ref]))}));
+    let max=0; series.forEach(s=>s.vals.forEach(v=>{if(v>max)max=v;})); if(max<=0)max=1;
+    const W=720,H=300,pL=54,pB=26,pT=12,pR=14;
+    const sx=m=>pL+(m-1)/11*(W-pL-pR), sy=v=>H-pB-(v/max)*(H-pT-pB);
+    let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">`;
+    for(let i=0;i<=4;i++){const yv=max*i/4,yy=sy(yv); svg+=`<line x1="${pL}" y1="${yy}" x2="${W-pR}" y2="${yy}" stroke="#eef1ee"/><text x="${pL-6}" y="${yy+3}" font-size="9" text-anchor="end" fill="#aaa">${fmt(yv)}</text>`;}
+    MONTHS.forEach(m=>svg+=`<text x="${sx(m)}" y="${H-pB+14}" font-size="9" text-anchor="middle" fill="#999">${m}</text>`);
+    series.forEach(s=>{const pts=s.vals.map((v,i)=>({m:i+1,v})).filter(p=>p.v>0);
+      if(pts.length)svg+=`<path d="${pts.map((p,i)=>(i?'L':'M')+sx(p.m).toFixed(1)+' '+sy(p.v).toFixed(1)).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
+      pts.forEach(p=>svg+=`<circle cx="${sx(p.m)}" cy="${sy(p.v)}" r="3" fill="${s.color}"/>`);});
+    svg+=`</svg>`;
+    const leg=series.map(s=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px"><span style="width:10px;height:10px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.l}</span>`).join('');
+    area.innerHTML=svg+`<div style="margin-top:6px">${leg}</div>`;
+  }
+  document.getElementById('grid').addEventListener('input',recompute);
+  if(d.chart){
+    state.chartSel=state.chartSel||{}; if(!state.chartSel[key])state.chartSel[key]=['tot'];
+    const renderChips=()=>{const sel=state.chartSel[key];
+      document.getElementById('chartChips').innerHTML=d.chartSeries.map(s=>`<button class="btn ${sel.includes(s.ref)?'primary':''}" data-ref="${s.ref}" style="padding:4px 11px;font-size:12px">${s.l}</button>`).join('');
+      document.querySelectorAll('#chartChips [data-ref]').forEach(b=>b.onclick=()=>{const r=b.dataset.ref,i=sel.indexOf(r);
+        if(i>=0){if(sel.length>1)sel.splice(i,1);}else sel.push(r); renderChips(); drawTrend();});};
+    renderChips();
+  }
+  recompute(); fmtCells();
   document.getElementById('saveGrid').onclick=async()=>{
     const byMonth={};
     document.querySelectorAll('#grid .cell').forEach(i=>{(byMonth[i.dataset.m]=byMonth[i.dataset.m]||{})[i.dataset.k]=num(i.value);});
