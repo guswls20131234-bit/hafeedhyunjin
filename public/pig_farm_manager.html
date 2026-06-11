@@ -609,11 +609,13 @@ async function openScatter(date){
 }
 async function openMonthScatter(m){
   const ym=`${state.year}-${String(m).padStart(2,'0')}`;
+  const next = m===12 ? `${state.year+1}-01-01` : `${state.year}-${String(m+1).padStart(2,'0')}-01`;
   scMode='month'; scDate=ym; document.getElementById('scHd').textContent=`${ym} 한 달 전체 도체 산점도`;
   document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
   openModal('scatterModal');
-  const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId)
-    .gte('ship_date',`${ym}-01`).lte('ship_date',`${ym}-31`).order('ship_date');
+  const {data,error}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId)
+    .gte('ship_date',`${ym}-01`).lt('ship_date',next).order('ship_date');
+  if(error){toast('불러오기 실패: '+error.message,true);}
   renderScatter(data||[]);
 }
 function renderScatter(pigs){
