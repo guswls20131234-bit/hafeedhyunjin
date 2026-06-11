@@ -132,7 +132,8 @@
 </div></div>
 
 <script>
-const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_expenses',fc:'mgmt_forecast',pigs:'mgmt_ship_pigs'};
+const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_cost_records',fc:'mgmt_forecast',pigs:'mgmt_ship_pigs'};
+const EXP_CATS=['사료대금','인건비','분뇨처리비','전력비','약품비','정액구입비','운송비','건보료','이자','캐피탈이자','통신비','렌탈비','카드값','경조사비','운영비','생활비','기타'];
 const LS='pigfarm_cfg';
 const HARDCODED={url:'https://vsljsjqxcmielpxckjrn.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzbGpzanF4Y21pZWxweGNranJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjE0NzgsImV4cCI6MjA5MTkzNzQ3OH0.K8-tfAuMt_7gWQ7vyZwgeZ6LQiOf7B9V1qwSYbu2eY4'};
 let sb=null, cfg={...HARDCODED};
@@ -140,7 +141,7 @@ try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.url&&s.key)cfg=s;}catc
 function initClient(){ if(cfg.url&&cfg.key&&window.supabase){sb=window.supabase.createClient(cfg.url,cfg.key);return true;} return false; }
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2200);}
 
-const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg',shipMonth:new Date().getMonth()+1};
+const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg',shipMonth:new Date().getMonth()+1,expMonth:new Date().getMonth()+1};
 const FEED_REPRO=[['preg','임신돈'],['lactating','포유돈'],['gilt','후보돈']];
 const FEED_FATTEN=[['f1','1호'],['f2','2호'],['f3','3호'],['fchange','체인지'],['suckle','젖먹이'],['grow','육성'],['finish','비육']];
 const FEED_ALL=[...FEED_REPRO,...FEED_FATTEN];
@@ -182,7 +183,7 @@ function render(){
   const v=document.getElementById('view');
   if(!sb){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔌</div>Supabase에 아직 연결되지 않았습니다.<br>우측 상단 ⚙️ 에서 URL과 anon key를 입력하세요.</div></div></div>`;return;}
   if(!state.farmId){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🏡</div>등록된 거래처(농장)가 없습니다.<br>우측 상단 <b>+ 농장</b> 으로 추가하세요.</div></div></div>`;return;}
-  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,fc:viewForecast,exp:()=>viewGrid('exp')})[state.tab]();
+  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,fc:viewForecast,exp:viewExp})[state.tab]();
 }
 function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div class="k">${k}</div><div class="v">${v} <small>${unit||''}</small></div></div>`;}
 
@@ -204,13 +205,7 @@ const DEF={
     {k:'weaning_litters',l:'이유복수'},{k:'weaned_total',l:'총이유자돈수'},
     {calc:'avgwean',l:'평균이유두수',dec:1,agg:'rate',fn:v=>v('weaning_litters')?v('weaned_total')/v('weaning_litters'):0},
     {k:'weaning_age',l:'이유일령',dec:1}]},
-  feed:{table:T.feed,title:'사료',cols:[]},
-  exp:{table:T.exp,title:'운영경비 (원)',cols:[
-    {k:'labor',l:'인건비'},{k:'living',l:'생활비'},{k:'loan_repay',l:'대여금상환'},{k:'breeding_stock',l:'종돈구입비'},
-    {k:'feed_payment',l:'사료대금'},{k:'semen',l:'정액비용'},{k:'manure',l:'분뇨처리비'},{k:'modern_interest',l:'현대화원리금'},
-    {k:'medicine',l:'약품방역비'},{k:'repair',l:'수리유지비'},{k:'tax',l:'제세공과금'},{k:'utility',l:'전화전기수도광열'},
-    {k:'savings',l:'적금'},{k:'vehicle',l:'차량+운임'},{k:'insurance',l:'보험금'},{k:'interest',l:'이자'},
-    {calc:'total',l:'합계',fn:v=>['labor','living','loan_repay','breeding_stock','feed_payment','semen','manure','modern_interest','medicine','repair','tax','utility','savings','vehicle','insurance','interest'].reduce((s,k)=>s+v(k),0)}]}
+  feed:{table:T.feed,title:'사료',cols:[]}
 };
 
 const showVal=(c,n,forceDec)=> n? ((forceDec||(c&&c.dec))?fmt1(n):fmt(n)) : '-';
@@ -651,6 +646,53 @@ async function viewPerf(){
       </tbody></table></div></div>`;
 }
 
+/* ---------- 운영경비 (항목별 라인아이템) ---------- */
+async function viewExp(){
+  const y=state.year, fid=state.farmId, em=state.expMonth;
+  const {data}=await sb.from(T.exp).select('*').eq('farm_id',fid).like('ym',`${y}-%`).order('created_at');
+  const rows=data||[];
+  const byMC={}; MONTHS.forEach(m=>byMC[m]={});
+  rows.forEach(r=>{const m=+r.ym.slice(5,7); if(byMC[m])byMC[m][r.category]=(byMC[m][r.category]||0)+num(r.amount);});
+  const mTotal=m=>EXP_CATS.reduce((s,c)=>s+(byMC[m][c]||0),0);
+  const cTotal=c=>MONTHS.reduce((s,m)=>s+(byMC[m][c]||0),0);
+  const grand=EXP_CATS.reduce((s,c)=>s+cTotal(c),0);
+  const head=`<th>월</th>`+EXP_CATS.map(c=>`<th>${c}</th>`).join('')+`<th class="gsep">합계</th>`;
+  const body=MONTHS.map(m=>`<tr data-em="${m}" style="cursor:pointer${m===em?';background:var(--brand-l)':''}"><td class="mcol">${m}월</td>`+
+    EXP_CATS.map(c=>`<td>${byMC[m][c]?fmt(byMC[m][c]):'-'}</td>`).join('')+
+    `<td class="gsep" style="font-weight:700;color:var(--brand-d)">${mTotal(m)?fmt(mTotal(m)):'-'}</td></tr>`).join('');
+  const totRow=`<tr class="tot"><td class="mcol">합계</td>`+EXP_CATS.map(c=>`<td>${cTotal(c)?fmt(cTotal(c)):'-'}</td>`).join('')+`<td class="gsep">${fmt(grand)}</td></tr>`;
+  const mr=rows.filter(r=>+r.ym.slice(5,7)===em);
+  const detail=mr.map(r=>`<tr><td><span class="badge">${r.category}</span></td><td style="text-align:left">${r.name||'-'}</td>
+      <td>${fmt(r.amount)}</td><td style="text-align:left;color:var(--muted)">${r.memo||''}</td>
+      <td><button class="del" data-del="${r.id}">삭제</button></td></tr>`).join('')||`<tr><td colspan="5" class="empty">${em}월 입력 항목이 없습니다.</td></tr>`;
+  document.getElementById('view').innerHTML=`
+    <div class="card"><div class="hd"><h2>운영경비</h2><span class="sub">${y}년 · 월을 클릭하면 그 달 항목 입력이 열립니다</span></div>
+      <div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${body}${totRow}</tbody></table></div></div>
+    <div class="card" style="margin-top:18px"><div class="hd"><h2>${em}월 항목 입력</h2><span class="sub">항목 안에서 여러 줄로 나눠 관리</span></div>
+      <div class="row-add">
+        <div class="field"><label>항목</label><select id="c_cat">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+        <div class="field"><label>세부명 (예: 김씨)</label><input class="inp" id="c_name"></div>
+        <div class="field"><label>금액(원)</label><input class="inp" id="c_amt" inputmode="numeric"></div>
+        <div class="field" style="flex:1"><label>메모</label><input class="inp" id="c_memo"></div>
+        <button class="btn primary" id="addCost">+ 추가</button></div>
+      <div class="tablewrap"><table><thead><tr><th>항목</th><th>세부명</th><th>금액</th><th>메모</th><th></th></tr></thead>
+      <tbody>${detail}</tbody></table></div>
+      <div class="gridfoot"><span class="hint">${em}월 합계</span><b style="font-size:15px;color:var(--brand-d)">${fmt(mTotal(em))}원</b></div></div>`;
+
+  document.querySelectorAll('[data-em]').forEach(tr=>tr.onclick=()=>{state.expMonth=+tr.dataset.em;viewExp();});
+  document.getElementById('addCost').onclick=async()=>{
+    const cat=document.getElementById('c_cat').value, name=document.getElementById('c_name').value.trim();
+    const amt=num(document.getElementById('c_amt').value), memo=document.getElementById('c_memo').value.trim();
+    if(!amt){toast('금액을 입력하세요',true);return;}
+    const {error}=await sb.from(T.exp).insert({farm_id:fid,ym:`${y}-${String(em).padStart(2,'0')}`,category:cat,name:name||null,amount:amt,memo:memo||null});
+    if(error){toast('추가 실패: '+error.message,true);return;} toast('추가되었습니다');viewExp();
+  };
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('이 항목을 삭제할까요?'))return;
+    const {error}=await sb.from(T.exp).delete().eq('id',b.dataset.del);
+    if(error){toast('삭제 실패',true);return;} toast('삭제되었습니다');viewExp();});
+}
+
 /* ---------- 출하예측 (목표 기반 손익예측) ---------- */
 const FC_DEF={birthRate:90,weanPerLitter:13,growSurv:95,fatSurv:95,avgWeight:115,feedPerKg:3.2,feedCostPerKg:630,opCost:0};
 async function viewForecast(){
@@ -723,16 +765,16 @@ async function viewDash(){
     sb.from(T.exp).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
     sb.from(T.ship).select('*').eq('farm_id',fid).gte('ship_date',`${y}-01-01`).lte('ship_date',`${y}-12-31`)
   ]);
-  const H={},F={},E={}; (h.data||[]).forEach(r=>H[+r.ym.slice(5,7)]=r);(f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);(e.data||[]).forEach(r=>E[+r.ym.slice(5,7)]=r);
+  const H={},F={},E={}; (h.data||[]).forEach(r=>H[+r.ym.slice(5,7)]=r);(f.data||[]).forEach(r=>F[+r.ym.slice(5,7)]=r);
+  (e.data||[]).forEach(r=>{const m=+r.ym.slice(5,7); E[m]=(E[m]||0)+num(r.amount);});
   const SM=aggShipByMonth(sh.data||[]); const S={}; MONTHS.forEach(m=>S[m]={head:SM[m].head,amt:SM[m].amt+SM[m].oAmt});
-  const expKeys=DEF.exp.cols.filter(c=>c.k).map(c=>c.k);
   let T_sows=0,T_ship=0,T_amt=0,T_feedkg=0,T_feedc=0,T_exp=0,T_net=0;
   const rowsHtml=MONTHS.map(m=>{
-    const hr=H[m]||{},fr=F[m]||{},er=E[m]||{};
+    const hr=H[m]||{},fr=F[m]||{};
     const sows=num(hr.preg)+num(hr.lactating);
     const total=sows+num(hr.boar)+num(hr.gilt_female)+num(hr.gilt_male)+num(hr.suckling)+num(hr.weaned)+num(hr.growing)+num(hr.finishing);
     const fkg=FEED_ALL.reduce((s,[b])=>s+num(fr[b+'_kg']),0), fc=FEED_ALL.reduce((s,[b])=>s+num(fr[b+'_won']),0);
-    const ex=expKeys.reduce((s,k)=>s+num(er[k]),0);
+    const ex=E[m]||0;
     const sHead=(S[m]||{}).head||0,sAmt=(S[m]||{}).amt||0, net=sAmt-fc-ex;
     T_ship+=sHead;T_amt+=sAmt;T_feedkg+=fkg;T_feedc+=fc;T_exp+=ex;T_net+=net;
     return `<tr><td class="mcol">${m}월</td><td>${fmt(sows)}</td><td>${fmt(total)}</td><td>${fmt(sHead)}</td><td>${fmt(sAmt)}</td><td>${fmt(fkg)}</td><td>${fmt(fc)}</td><td>${fmt(ex)}</td><td>${fmt(net)}</td></tr>`;
