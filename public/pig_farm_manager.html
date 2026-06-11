@@ -533,7 +533,7 @@ document.getElementById('applyMap').onclick=async()=>{
 };
 
 /* ---------- 도체 산점도 (정산서 업로드) ---------- */
-let scDate=null;
+let scDate=null, scMode='date';
 function gradeOf(cw,bf){
   if(cw>=83&&cw<93&&bf>=17&&bf<25)return'plus';
   if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))return'one';
@@ -601,18 +601,29 @@ function parseSettlement(aoa){
 const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
 async function openScatter(date){
-  scDate=date; document.getElementById('scHd').textContent=`${date} 도체 산점도`;
+  scMode='date'; scDate=date; document.getElementById('scHd').textContent=`${date} 도체 산점도`;
   document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
   openModal('scatterModal');
   const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('ship_date',date).order('pig_id');
   renderScatter(data||[]);
 }
+async function openMonthScatter(m){
+  const ym=`${state.year}-${String(m).padStart(2,'0')}`;
+  scMode='month'; scDate=ym; document.getElementById('scHd').textContent=`${ym} 한 달 전체 도체 산점도`;
+  document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
+  openModal('scatterModal');
+  const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId)
+    .gte('ship_date',`${ym}-01`).lte('ship_date',`${ym}-31`).order('ship_date');
+  renderScatter(data||[]);
+}
 function renderScatter(pigs){
-  const body=document.getElementById('scBody'); const del=document.getElementById('scDelete');
+  const body=document.getElementById('scBody'); const del=document.getElementById('scDelete'); const up=document.getElementById('scUpload');
   const reg=pigs.filter(p=>num(p.cw)>0&&num(p.bf)>0);
-  document.getElementById('scUpload').textContent= pigs.length?'📂 다시 업로드':'📂 정산서 업로드';
-  del.style.display= pigs.length?'':'none';
-  if(!pigs.length){ body.innerHTML=`<div class="empty"><div class="big">📈</div>이 날짜의 도체 데이터가 없습니다.<br>아래 <b>정산서 업로드</b>로 엑셀을 올리면 산점도가 생성됩니다.</div>`; return; }
+  if(scMode==='month'){ up.style.display='none'; del.style.display='none'; }
+  else { up.style.display=''; up.textContent= pigs.length?'📂 다시 업로드':'📂 정산서 업로드'; del.style.display= pigs.length?'':'none'; }
+  if(!pigs.length){ body.innerHTML= scMode==='month'
+      ? `<div class="empty"><div class="big">📈</div>이 달에 저장된 도체 데이터가 없습니다.<br>일자별로 정산서를 올리면 한 달 전체가 합산되어 보입니다.</div>`
+      : `<div class="empty"><div class="big">📈</div>이 날짜의 도체 데이터가 없습니다.<br>아래 <b>정산서 업로드</b>로 엑셀을 올리면 산점도가 생성됩니다.</div>`; return; }
   const st=pigStats(reg);
   const k=(l,v,u)=>`<div class="kpi"><div class="k">${l}</div><div class="v">${v} <small>${u||''}</small></div></div>`;
   body.innerHTML=`
@@ -698,7 +709,8 @@ async function viewShip(){
         <div class="field"><label>금액(원)</label><input class="inp" id="s_amt" inputmode="numeric"></div>
         <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
         <button class="btn primary" id="addShip">+ 추가</button>
-        <button class="btn" id="openSc">📈 이 날짜 산점도</button></div>
+        <button class="btn" id="openSc">📈 이 날짜 산점도</button>
+        <button class="btn" id="openScMon">📈 이 달 전체</button></div>
       <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
       <tbody>${mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
         return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
@@ -707,6 +719,7 @@ async function viewShip(){
 
   document.querySelectorAll('[data-mon]').forEach(tr=>tr.onclick=()=>{state.shipMonth=+tr.dataset.mon;viewShip();});
   document.getElementById('openSc').onclick=()=>{const d=document.getElementById('s_date').value; if(!d){toast('일자를 선택하세요',true);return;} openScatter(d);};
+  document.getElementById('openScMon').onclick=()=>openMonthScatter(sm);
   document.querySelectorAll('[data-sc]').forEach(b=>b.onclick=e=>{e.stopPropagation();openScatter(b.dataset.sc);});
   document.getElementById('addShip').onclick=async()=>{
     const d=document.getElementById('s_date').value; if(!d){toast('일자를 입력하세요',true);return;}
