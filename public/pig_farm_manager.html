@@ -54,6 +54,7 @@
   th:first-child{position:sticky;left:0;z-index:3}
   tr.tot td{font-weight:800;background:#eef3ee;border-top:2px solid var(--brand);color:var(--brand-d)}
   tr.tot td.mcol{background:#eef3ee}
+  tr.subtot td{font-weight:700;background:#f5f8f4;border-top:1px solid #d6e2d4;color:#3a5a44}
   .cell{width:100px;border:1px solid transparent;background:transparent;border-radius:7px;padding:5px 7px;text-align:right;font-size:13px;color:var(--ink)}
   .cell:hover{border-color:var(--line)} .cell:focus{border-color:var(--brand);background:#fff;outline:none}
   td.calc{background:#f3f6f3;color:var(--muted);font-weight:700}
@@ -692,6 +693,13 @@ async function viewShip(){
   const T_=k=>MONTHS.reduce((s,m)=>s+M[m][k],0);
   const tH=T_('head'),tK=T_('kg'),tA=T_('amt'),toH=T_('oHead'),toA=T_('oAmt');
   const mr=rows.filter(r=>+(r.ship_date||'').slice(5,7)===sm);
+  const mrTot=()=>{
+    const sub=arr=>{const h=arr.reduce((s,r)=>s+num(r.head),0),kg=arr.reduce((s,r)=>s+num(r.total_kg),0),amt=arr.reduce((s,r)=>s+num(r.amount),0);
+      return {h,kg,amt,pw:h?kg/h:0,pk:kg?amt/kg:0};};
+    const row=(label,arr,cls)=>{const t=sub(arr);
+      return `<tr class="${cls}"><td colspan="2" class="mcol">${label}</td><td>${fmt(t.h)}</td><td>${fmt(t.kg)}</td><td>${fmt1(t.pw)}</td><td>${fmt(t.amt)}</td><td>${fmt(t.pk)}</td><td>-</td><td></td></tr>`;};
+    return row('규격 합계',mr.filter(r=>!r.is_offspec),'subtot')+row('비규격 합계',mr.filter(r=>r.is_offspec),'subtot')+row('합계',mr,'tot');
+  };
   document.getElementById('view').innerHTML=`
     <div class="card"><div class="hd"><h2>출하현황</h2><span class="sub">${y}년 · 월을 클릭하면 그 달 일자별 입력이 열립니다</span></div>
       <div class="tablewrap"><table><thead><tr>
@@ -714,10 +722,10 @@ async function viewShip(){
         <button class="btn" id="openSc">📈 이 날짜 산점도</button>
         <button class="btn" id="openScMon">📈 이 달 전체</button></div>
       <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
-      <tbody>${mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
+      <tbody>${mr.length?(mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
         return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
         <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
-        <td style="white-space:nowrap"><button class="btn" data-sc="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')||`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+        <td style="white-space:nowrap"><button class="btn" data-sc="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')+mrTot()):`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
 
   document.querySelectorAll('[data-mon]').forEach(tr=>tr.onclick=()=>{state.shipMonth=+tr.dataset.mon;viewShip();});
   document.getElementById('openSc').onclick=()=>{const d=document.getElementById('s_date').value; if(!d){toast('일자를 선택하세요',true);return;} openScatter(d);};
