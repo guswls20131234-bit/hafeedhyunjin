@@ -86,7 +86,7 @@
 <header>
   <div class="logo"><div class="mark">🐖</div><span>양돈 거래처 관리</span></div>
   <div class="spacer"></div>
-  <div class="ctl"><label>거래처</label><select id="farmSel" style="min-width:150px"></select><button class="btn" id="addFarmBtn">+ 농장</button></div>
+  <div class="ctl"><label>거래처</label><select id="farmSel" style="min-width:150px"></select><button class="btn" id="addFarmBtn">+ 농장</button><button class="btn" id="linkBtn" title="이 거래처 전용 링크 복사">🔗 링크</button></div>
   <div class="ctl"><label>연도</label><select id="yearSel" style="width:100px"></select></div>
   <button class="btn icon" id="cfgBtn" title="Supabase 설정">⚙️</button>
 </header>
@@ -142,6 +142,24 @@ try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.url&&s.key)cfg=s;}catc
 function initClient(){ if(cfg.url&&cfg.key&&window.supabase){sb=window.supabase.createClient(cfg.url,cfg.key);return true;} return false; }
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2200);}
 
+/* ---------- 거래처 전용 링크(잠금모드) ---------- */
+function getLockedFarm(){
+  try{
+    const h=new URLSearchParams(location.hash.slice(1));
+    const q=new URLSearchParams(location.search);
+    return h.get('farm')||q.get('farm')||null;
+  }catch(e){return null;}
+}
+const LOCKED=getLockedFarm();
+function copyFarmLink(){
+  if(!state.farmId){toast('농장을 먼저 선택하세요',true);return;}
+  const base=location.href.split('#')[0].split('?')[0];
+  const url=base+'#farm='+encodeURIComponent(state.farmId);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=>toast('전용 링크가 복사되었습니다')).catch(()=>prompt('이 링크를 복사해서 거래처에 보내세요',url));
+  } else prompt('이 링크를 복사해서 거래처에 보내세요',url);
+}
+
 const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg',shipMonth:new Date().getMonth()+1,expMonth:new Date().getMonth()+1};
 const FEED_REPRO=[['preg','임신돈'],['lactating','포유돈'],['gilt','후보돈']];
 const FEED_FATTEN=[['f1','1호'],['f2','2호'],['f3','3호'],['fchange','체인지'],['suckle','젖먹이'],['grow','육성'],['finish','비육']];
@@ -163,10 +181,20 @@ async function boot(){
   const y=new Date().getFullYear(), ys=document.getElementById('yearSel');
   for(let v=y+1;v>=y-5;v--) ys.insertAdjacentHTML('beforeend',`<option value="${v}" ${v===y?'selected':''}>${v}년</option>`);
   ys.onchange=e=>{state.year=+e.target.value;render();};
+  if(LOCKED){ ['addFarmBtn','linkBtn','cfgBtn'].forEach(id=>{const el=document.getElementById(id); if(el)el.style.display='none';}); }
   if(!initClient()){openModal('cfgModal');render();return;}
   await loadFarms();
 }
 async function loadFarms(){
+  if(LOCKED){
+    const {data,error}=await sb.from(T.farms).select('*').eq('id',LOCKED).maybeSingle();
+    if(error){toast('연결 오류: '+error.message,true);render();return;}
+    if(!data){document.getElementById('view').innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔒</div>이 링크에 연결된 거래처를 찾을 수 없습니다.<br>관리자에게 문의하세요.</div></div></div>`;return;}
+    state.farms=[data]; state.farmId=data.id;
+    const ctl=document.getElementById('farmSel').closest('.ctl');
+    if(ctl)ctl.innerHTML=`<span style="font-weight:800;font-size:16px;color:var(--brand-d)">🐖 ${data.name}</span>`;
+    render(); return;
+  }
   const {data,error}=await sb.from(T.farms).select('*').order('created_at');
   if(error){toast('연결 오류: '+error.message,true);render();return;}
   state.farms=data||[];
@@ -921,6 +949,7 @@ async function viewDash(){
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 document.getElementById('addFarmBtn').onclick=()=>{if(!sb){toast('먼저 Supabase를 연결하세요',true);openModal('cfgModal');return;}openModal('farmModal');};
+document.getElementById('linkBtn').onclick=copyFarmLink;
 document.getElementById('cfgBtn').onclick=()=>{document.getElementById('cfgUrl').value=cfg.url;document.getElementById('cfgKey').value=cfg.key;openModal('cfgModal');};
 document.getElementById('saveCfgBtn').onclick=async()=>{
   cfg={url:document.getElementById('cfgUrl').value.trim(),key:document.getElementById('cfgKey').value.trim()};
