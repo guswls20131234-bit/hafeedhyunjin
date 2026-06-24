@@ -105,6 +105,13 @@
   .wk-stage.has{background:#eef5f0;border-color:var(--brand)}
   .wk-stage.has .wk-in{border-color:var(--brand);font-weight:700;color:var(--brand-d)}
   .wk-stage.has .wk-exp{text-decoration:line-through;opacity:.6}
+  /* 종부 역추적 */
+  .wk-trace{cursor:pointer;position:relative}
+  .wk-trace:hover{background:#eef5f0}
+  .wk-trace .wk-tag{display:block;font-size:10px;color:#9aa8a0;margin-top:2px;opacity:0;transition:.12s}
+  .wk-trace:hover .wk-tag{opacity:1;color:var(--brand)}
+  @keyframes wkflash{0%{background:#cfe6d6}60%{background:#cfe6d6}100%{background:transparent}}
+  tr.wk-flash td{animation:wkflash 1.7s ease}
 </style>
 </head>
 <body>
@@ -1131,14 +1138,34 @@ function wkCmp(){
     else{const pct=exp>0?(act/exp*100-100):0;const cls=pct>=-2?'ok':(pct>=-10?'warn':'bad');
       o+='<span class="a '+cls+'">실적 '+fmt(act)+' ('+(pct>=0?'+':'−')+Math.abs(Math.round(pct))+'%)</span>';}
     return o+'</div>';};
+  const KOR={farrow:'분만',wean:'이유',ship:'출하'};
+  const srcBred=(st,i)=>st==='farrow'?i-s.gestWk:st==='wean'?i-s.gestWk-s.sucklingWk:i-s.gestWk-s.shipWk;
+  const upWeek =(st,i)=>st==='farrow'?i-s.gestWk:st==='wean'?i-s.sucklingWk:i-(s.shipWk-s.sucklingWk);
+  const traceTd=(st,exp,act,i)=>{
+    const inner=cmp(exp,act); if(exp<.5&&act==null)return `<td>${inner}</td>`;
+    const src=srcBred(st,i), up=upWeek(st,i), ago=i-src;
+    const tip=`이 ${KOR[st]} 무리 = ${wkLabel(src)} 종부분 (${ago}주 전) · 클릭하면 그 종부 주차로 이동`;
+    return `<td class="wk-trace" data-jump="${src}" data-up="${up}" title="${tip}">${inner}<span class="wk-tag">${wkLabel(src)}↩</span></td>`;};
   let rows='';
   for(let i=lo;i<=hi;i++){const b=wkBred(i),ef=wkExpFarrow(i),af=wkAF(i),ew=wkExpWean(i),aw=wkAW(i),es=wkExpShip(i),as=wkAS(i);
     if(b<.5&&ef<.5&&ew<.5&&es<.5&&af==null&&aw==null&&as==null)continue;
-    rows+=`<tr class="${i===NOWW?'wk-now':''}"><td class="mcol">${wkLabel(i)}${i===NOWW?' ◀':''}</td><td style="text-align:left;color:var(--muted)">${wkRange(i)}</td>`
-      +`<td>${b<.5?'<span style="color:var(--muted)">-</span>':fmt(b)}</td><td>${cmp(ef,af)}</td><td>${cmp(ew,aw)}</td><td>${cmp(es,as)}</td></tr>`;}
+    rows+=`<tr data-wk="${i}" class="${i===NOWW?'wk-now':''}"><td class="mcol">${wkLabel(i)}${i===NOWW?' ◀':''}</td><td style="text-align:left;color:var(--muted)">${wkRange(i)}</td>`
+      +`<td>${b<.5?'<span style="color:var(--muted)">-</span>':'<b style="color:var(--brand-d)">'+fmt(b)+'</b>'}</td>`
+      +traceTd('farrow',ef,af,i)+traceTd('wean',ew,aw,i)+traceTd('ship',es,as,i)+`</tr>`;}
   document.getElementById('wkContent').innerHTML=`
-    <div class="hint" style="margin-bottom:12px">예상은 <b>직전 단계 실적</b> 기준 → 빨간 칸이 손실 구간 (분만=수태문제, 이유=포유폐사, 출하=육성·비육폐사). <b style="color:var(--brand)">초록</b> 정상 · <b style="color:#a9781b">주황</b> 2~10%↓ · <b style="color:var(--danger)">빨강</b> 10%↓</div>
+    <div class="hint" style="margin-bottom:12px">예상은 <b>직전 단계 실적</b> 기준 → 빨간 칸이 손실 구간 (분만=수태문제, 이유=포유폐사, 출하=육성·비육폐사). <b style="color:var(--brand)">초록</b> 정상 · <b style="color:#a9781b">주황</b> 2~10%↓ · <b style="color:var(--danger)">빨강</b> 10%↓<br><span style="color:var(--brand-d)">💡 분만·이유·출하 칸에 마우스를 올리면 <b>몇 주 전 종부분</b>인지 보이고, 클릭하면 그 종부 주차 행으로 이동합니다.</span></div>
     <div class="tablewrap"><table><thead><tr><th>주차</th><th style="text-align:left">기간</th><th>종부(복)</th><th>분만(복)</th><th>이유(두)</th><th>출하(두)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const wrap=document.querySelector('#wkContent .tablewrap');
+  document.querySelectorAll('#wkContent .wk-trace').forEach(td=>td.onclick=()=>{
+    const want=+td.dataset.jump, up=+td.dataset.up;
+    let row=wrap.querySelector(`tr[data-wk="${want}"]`), note='';
+    if(!row){row=wrap.querySelector(`tr[data-wk="${up}"]`); if(row)note=' (종부 주차가 범위 밖이라 직전 단계로 이동)';}
+    if(!row){toast('해당 종부 주차가 표 범위에 없어요',true);return;}
+    const top=row.offsetTop-wrap.clientHeight/2+row.clientHeight/2;
+    wrap.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+    row.classList.add('wk-flash'); setTimeout(()=>row.classList.remove('wk-flash'),1700);
+    if(note)toast('이동'+note);
+  });
 }
 
 function wkSet(){
