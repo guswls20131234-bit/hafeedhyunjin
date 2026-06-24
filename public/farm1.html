@@ -93,6 +93,18 @@
   .wk-bar span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;min-width:0}
   tr.wk-now td{background:#fbf6e8 !important}
   tr.wk-now td.mcol{background:#f6efd8 !important;color:#9a7b1b}
+  /* 입력 단계 시각 구분 */
+  th.wk-h{border-left:2px solid #cdd8cd}
+  th.wk-h small{display:block;font-weight:600;color:#9aa8a0;font-size:10px;margin-top:2px}
+  td.wk-bredtd{background:#eef5f0;border-left:2px solid #cdd8cd}
+  td.wk-stagetd{border-left:2px solid #e6ece6}
+  .wk-bred{border-color:var(--brand) !important;font-weight:800;color:var(--brand-d)}
+  .wk-stage{display:flex;flex-direction:column;gap:3px;align-items:stretch;border:1px solid var(--line);border-radius:9px;padding:4px 6px 5px;background:#fbfcfb}
+  .wk-stage .wk-exp{font-size:11px;color:var(--muted);text-align:right;font-style:italic;line-height:1.15}
+  .wk-stage .wk-in{width:100%}
+  .wk-stage.has{background:#eef5f0;border-color:var(--brand)}
+  .wk-stage.has .wk-in{border-color:var(--brand);font-weight:700;color:var(--brand-d)}
+  .wk-stage.has .wk-exp{text-decoration:line-through;opacity:.6}
 </style>
 </head>
 <body>
@@ -1046,24 +1058,25 @@ async function viewWeekly(){
 
 function wkEntry(){
   if(WK.entryYear!==state.year){WK.entryYear=state.year;WK.rs=wIdx(new Date(state.year,0,1));WK.re=wIdx(new Date(state.year,11,31));}
-  const eCell=(i,f,exp)=>{const w=WK.weeks[i]||{};const v=w[f]??'';const lab=exp>0.5?('예상 '+fmt(exp)):'예상 —';
-    return `<td><div class="wk-ecell"><span class="wk-exp">${lab}</span><input class="wk-in" type="number" min="0" step="1" data-i="${i}" data-f="${f}" value="${v}" placeholder="실제"></div></td>`;};
+  const eCell=(i,f,exp)=>{const w=WK.weeks[i]||{};const v=w[f]??'';const lab=exp>0.5?('예상 '+fmt(exp)):'예상 —';const has=String(v).trim()!=='';
+    return `<td class="wk-stagetd"><div class="wk-stage${has?' has':''}"><span class="wk-exp">${lab}</span><input class="wk-in" type="number" min="0" step="1" data-i="${i}" data-f="${f}" value="${v}" placeholder="실제"></div></td>`;};
   let rows='';
   for(let i=WK.rs;i<=WK.re;i++){const w=WK.weeks[i]||{};
     rows+=`<tr class="${i===NOWW?'wk-now':''}"><td class="mcol">${wkLabel(i)}${i===NOWW?' ◀':''}</td><td style="text-align:left;color:var(--muted)">${wkRange(i)}</td>`
-      +`<td><input class="wk-in" type="number" min="0" step="1" data-i="${i}" data-f="bred" value="${w.bred??''}" placeholder="0"></td>`
+      +`<td class="wk-bredtd"><input class="wk-in wk-bred" type="number" min="0" step="1" data-i="${i}" data-f="bred" value="${w.bred??''}" placeholder="0"></td>`
       +eCell(i,'farrow',wkExpFarrow(i))+eCell(i,'wean',wkExpWean(i))+eCell(i,'ship',wkExpShip(i))+`</tr>`;}
   document.getElementById('wkContent').innerHTML=`
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-      <span class="hint">${state.year}년 · 한 주(월~일) <b>종부복수</b>만 넣어도 분만·이유·출하가 예상으로 잡힙니다. 실제값을 넣으면 실적으로 반영돼요.</span>
+      <span class="hint">${state.year}년 · <b style="color:var(--brand-d)">초록 칸(종부복수)</b>만 넣으면 분만·이유·출하가 <i>예상</i>으로 잡힙니다. 나중에 실제가 확인되면 각 단계 박스의 <b>실제</b> 칸에 넣으세요 — 그 칸은 초록으로 바뀌고 예상엔 줄이 그어집니다.</span>
       <span style="flex:1"></span>
       <button class="btn" id="wkBack" style="padding:6px 11px">◀ 이전 4주</button><button class="btn" id="wkFwd" style="padding:6px 11px">이후 4주 ▶</button></div>
-    <div class="tablewrap"><table><thead><tr><th>주차</th><th style="text-align:left">기간</th><th>종부복수</th><th>분만복수</th><th>이유두수</th><th>출하두수</th></tr></thead>
+    <div class="tablewrap"><table><thead><tr><th>주차</th><th style="text-align:left">기간</th><th class="wk-h">종부복수<small>입력</small></th><th class="wk-h">분만복수<small>예상 → 실제</small></th><th class="wk-h">이유두수<small>예상 → 실제</small></th><th class="wk-h">출하두수<small>예상 → 실제</small></th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   const cont=document.getElementById('wkContent');
   cont.querySelector('table').addEventListener('input',e=>{const inp=e.target.closest('input');if(!inp)return;
     const i=+inp.dataset.i,f=inp.dataset.f;
     (WK.weeks[i]=WK.weeks[i]||{bred:'',farrow:'',wean:'',ship:''})[f]=inp.value;
+    const box=inp.closest('.wk-stage'); if(box)box.classList.toggle('has',String(inp.value).trim()!=='');
     WK._dirty.add(i);
     clearTimeout(window._wkt);window._wkt=setTimeout(async()=>{
       const ids=[...WK._dirty];WK._dirty.clear();
