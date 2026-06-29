@@ -606,7 +606,7 @@ function gradeOf(cw,bf){
   return'out';
 }
 function scatterSVG(pts){
-  const W=680,H=440,pL=46,pB=40,pT=14,pR=16, x0=60,x1=100,y0=8,y1=32;
+  const W=680,H=440,pL=46,pB=40,pT=14,pR=16, x0=60,x1=120,y0=8,y1=32;
   const sx=v=>pL+(Math.max(x0,Math.min(x1,v))-x0)/(x1-x0)*(W-pL-pR);
   const sy=v=>H-pB-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0)*(H-pT-pB);
   const rect=(a,b,c,d,f,s)=>`<rect x="${sx(a)}" y="${sy(d)}" width="${sx(b)-sx(a)}" height="${sy(c)-sy(d)}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`;
