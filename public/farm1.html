@@ -599,7 +599,7 @@ document.getElementById('applyMap').onclick=async()=>{
 };
 
 /* ---------- 도체 산점도 (정산서 업로드) ---------- */
-let scDate=null, scMode='date';
+let scDate=null, scMode='date', scShipId=null, scLegacyDate=null;
 function gradeOf(cw,bf){
   if(cw>=83&&cw<93&&bf>=17&&bf<25)return'plus';
   if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))return'one';
@@ -666,12 +666,18 @@ function parseSettlement(aoa){
 }
 const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-async function openScatter(date){
-  scMode='date'; scDate=date; document.getElementById('scHd').textContent=`${date} 도체 산점도`;
+async function openRowScatter(shipId, date){
+  scMode='row'; scShipId=String(shipId); scDate=date; scLegacyDate=null;
+  document.getElementById('scHd').textContent=`${date} 도체 산점도`;
   document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
   openModal('scatterModal');
-  const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('ship_date',date).order('pig_id');
-  renderScatter(data||[]);
+  let {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('shipment_id',scShipId).order('pig_id');
+  data=data||[];
+  if(!data.length){
+    const leg=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('ship_date',date).is('shipment_id',null).order('pig_id');
+    if(leg.data&&leg.data.length){ scLegacyDate=date; renderScatter(leg.data,true); return; }
+  }
+  renderScatter(data);
 }
 async function openMonthScatter(m){
   const ym=`${state.year}-${String(m).padStart(2,'0')}`;
@@ -684,17 +690,22 @@ async function openMonthScatter(m){
   if(error){toast('불러오기 실패: '+error.message,true);}
   renderScatter(data||[]);
 }
-function renderScatter(pigs){
+function renderScatter(pigs, isLegacy){
   const body=document.getElementById('scBody'); const del=document.getElementById('scDelete'); const up=document.getElementById('scUpload');
   const reg=pigs.filter(p=>num(p.cw)>0&&num(p.bf)>0);
   if(scMode==='month'){ up.style.display='none'; del.style.display='none'; }
   else { up.style.display=''; up.textContent= pigs.length?'📂 다시 업로드':'📂 정산서 업로드'; del.style.display= pigs.length?'':'none'; }
   if(!pigs.length){ body.innerHTML= scMode==='month'
-      ? `<div class="empty"><div class="big">📈</div>이 달에 저장된 도체 데이터가 없습니다.<br>일자별로 정산서를 올리면 한 달 전체가 합산되어 보입니다.</div>`
-      : `<div class="empty"><div class="big">📈</div>이 날짜의 도체 데이터가 없습니다.<br>아래 <b>정산서 업로드</b>로 엑셀을 올리면 산점도가 생성됩니다.</div>`; return; }
+      ? `<div class="empty"><div class="big">📈</div>이 달에 저장된 도체 데이터가 없습니다.<br>출하 줄마다 📈로 정산서를 올리면 한 달 전체가 합산되어 보입니다.</div>`
+      : `<div class="empty"><div class="big">📈</div>이 출하 건의 도체 데이터가 없습니다.<br>아래 <b>정산서 업로드</b>로 엑셀을 올리면 산점도가 생성됩니다.</div>`; return; }
   const st=pigStats(reg);
   const k=(l,v,u)=>`<div class="kpi"><div class="k">${l}</div><div class="v">${v} <small>${u||''}</small></div></div>`;
-  body.innerHTML=`
+  const legacyBanner = isLegacy
+    ? `<div style="background:#fbf4e6;border:1px solid #e7d8b0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7a5d1b;line-height:1.5">
+         이 도체 데이터는 아직 이 출하 줄에 연결되지 않은 <b>기존(날짜기반) 데이터</b>입니다. 같은 날짜에 출하 건이 여러 개라면 연결 전에 확인하세요.
+         <button class="btn" id="scLink" style="padding:4px 10px;margin-left:6px">이 출하 줄에 연결</button></div>`
+    : '';
+  body.innerHTML= legacyBanner + `
     <div class="kpis" style="margin-bottom:14px">
       ${k('출하두수',fmt(st.n),'두')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
       ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급+ 비율',fmt1(st.plusPct),'%')}</div>
@@ -706,10 +717,14 @@ function renderScatter(pigs){
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E24B4A"></span> 1등급+</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#378ADD"></span> 1등급</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9aa39a"></span> 등외</span></div>`;
+  if(isLegacy){const lb=document.getElementById('scLink'); if(lb)lb.onclick=async()=>{
+    await sb.from(T.pigs).update({shipment_id:scShipId}).eq('farm_id',state.farmId).eq('ship_date',scDate).is('shipment_id',null);
+    toast('이 출하 줄에 연결되었습니다'); openRowScatter(scShipId,scDate);};}
 }
 async function saveScatter(pigs){
-  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate);
-  const rows=pigs.map(p=>({farm_id:state.farmId,ship_date:scDate,pig_id:p.pig_id||null,sex:p.sex||null,
+  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('shipment_id',scShipId);
+  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate).is('shipment_id',null);
+  const rows=pigs.map(p=>({farm_id:state.farmId,ship_date:scDate,shipment_id:scShipId,pig_id:p.pig_id||null,sex:p.sex||null,
     lw:p.lw||0,cw:p.cw||0,bf:p.bf||0,price:p.price||0}));
   const {error}=await sb.from(T.pigs).insert(rows);
   if(error){toast('저장 실패: '+error.message,true);return false;}
@@ -725,13 +740,14 @@ document.getElementById('scFile').onchange=e=>{const f=e.target.files[0]; e.targ
     const {date,pigs}=parseSettlement(aoa);
     if(!pigs.length){toast('도체 데이터를 찾지 못했습니다',true);return;}
     if(date&&date!==scDate&&!confirm(`파일의 출하일(${date})이 선택한 날짜(${scDate})와 달라요.\n선택한 날짜(${scDate})로 저장할까요?`))return;
-    if(await saveScatter(pigs)){toast(`${pigs.length}두 저장되었습니다`); const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('ship_date',scDate); renderScatter(data||[]);}
+    if(await saveScatter(pigs)){toast(`${pigs.length}두 저장되었습니다`); const {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('shipment_id',scShipId); renderScatter(data||[]);}
   };
   rd.readAsArrayBuffer(f);
 };
 document.getElementById('scDelete').onclick=async()=>{
-  if(!confirm(`${scDate} 도체 데이터를 모두 삭제할까요?`))return;
-  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate);
+  if(!confirm(`이 출하 건의 도체 데이터를 모두 삭제할까요?`))return;
+  await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('shipment_id',scShipId);
+  if(scLegacyDate) await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scLegacyDate).is('shipment_id',null);
   toast('삭제되었습니다'); renderScatter([]);
 };
 
@@ -775,7 +791,7 @@ async function viewShip(){
           <td>${fmt1(tH?tK/tH:0)}</td><td>${fmt(tK?tA/tK:0)}</td><td>-</td><td>-</td>
           <td class="gsep">${fmt(toH)}</td><td>${fmt(toA)}</td></tr></tbody></table></div></div>
 
-    <div class="card" style="margin-top:18px"><div class="hd"><h2>${sm}월 출하 기록</h2><span class="sub">일자별로 추가</span></div>
+    <div class="card" style="margin-top:18px"><div class="hd"><h2>${sm}월 출하 기록</h2><span class="sub">일자별로 추가 · 같은 날 여러 차수면 줄을 따로 추가하고 각 줄 📈로 그 건의 정산서를 올리세요</span></div>
       <div class="row-add">
         <div class="field"><label>일자</label><input class="inp" id="s_date" type="date" value="${y}-${String(sm).padStart(2,'0')}-01"></div>
         <div class="field"><label>구분</label><select id="s_off"><option value="false">규격</option><option value="true">비규격</option></select></div>
@@ -784,18 +800,16 @@ async function viewShip(){
         <div class="field"><label>금액(원)</label><input class="inp" id="s_amt" inputmode="numeric"></div>
         <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
         <button class="btn primary" id="addShip">+ 추가</button>
-        <button class="btn" id="openSc">📈 이 날짜 산점도</button>
-        <button class="btn" id="openScMon">📈 이 달 전체</button></div>
+        <button class="btn" id="openScMon">📈 이 달 전체 산점도</button></div>
       <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
       <tbody>${mr.length?(mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
         return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
         <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
-        <td style="white-space:nowrap"><button class="btn" data-sc="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')+mrTot()):`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+        <td style="white-space:nowrap"><button class="btn" data-scrow="${r.id}" data-scdate="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')+mrTot()):`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
 
   document.querySelectorAll('[data-mon]').forEach(tr=>tr.onclick=()=>{state.shipMonth=+tr.dataset.mon;viewShip();});
-  document.getElementById('openSc').onclick=()=>{const d=document.getElementById('s_date').value; if(!d){toast('일자를 선택하세요',true);return;} openScatter(d);};
   document.getElementById('openScMon').onclick=()=>openMonthScatter(sm);
-  document.querySelectorAll('[data-sc]').forEach(b=>b.onclick=e=>{e.stopPropagation();openScatter(b.dataset.sc);});
+  document.querySelectorAll('[data-scrow]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRowScatter(b.dataset.scrow,b.dataset.scdate);});
   document.getElementById('addShip').onclick=async()=>{
     const d=document.getElementById('s_date').value; if(!d){toast('일자를 입력하세요',true);return;}
     const {error}=await sb.from(T.ship).insert({farm_id:state.farmId,ship_date:d,is_offspec:document.getElementById('s_off').value==='true',
@@ -803,7 +817,8 @@ async function viewShip(){
     if(error){toast('추가 실패: '+error.message,true);return;} toast('추가되었습니다');viewShip();
   };
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async(e)=>{e.stopPropagation();
-    if(!confirm('이 기록을 삭제할까요?'))return;
+    if(!confirm('이 출하 기록을 삭제할까요?\n이 건에 연결된 도체(산점도) 데이터도 함께 삭제됩니다.'))return;
+    await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('shipment_id',String(b.dataset.del));
     const {error}=await sb.from(T.ship).delete().eq('id',b.dataset.del);
     if(error){toast('삭제 실패',true);return;} toast('삭제되었습니다');viewShip();});
 }
