@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>양돈 거래처 관리</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- XLSX는 정산서/거래원장 업로드 시에만 지연 로드(ensureXLSX) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
   :root{
@@ -174,6 +174,16 @@ let sb=null, cfg={...HARDCODED};
 try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.url&&s.key)cfg=s;}catch(e){}
 function initClient(){ if(cfg.url&&cfg.key&&window.supabase){sb=window.supabase.createClient(cfg.url,cfg.key);return true;} return false; }
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2200);}
+let _xlsxP=null;
+function ensureXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(_xlsxP) return _xlsxP;
+  _xlsxP=new Promise((res,rej)=>{const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=()=>res(); s.onerror=()=>{_xlsxP=null;rej(new Error('xlsx load fail'));};
+    document.head.appendChild(s);});
+  return _xlsxP;
+}
 
 /* ---------- 거래처 전용 링크(잠금모드) ---------- */
 function getLockedFarm(){
@@ -216,6 +226,7 @@ async function boot(){
   ys.onchange=e=>{state.year=+e.target.value;render();};
   if(LOCKED){ ['addFarmBtn','linkBtn','cfgBtn','prioBtn'].forEach(id=>{const el=document.getElementById(id); if(el)el.style.display='none';}); }
   if(!initClient()){openModal('cfgModal');render();return;}
+  document.getElementById('view').innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">⏳</div>데이터를 불러오는 중입니다…<br><span class="hint">잠시만 기다려 주세요</span></div></div></div>`;
   await loadFarms();
 }
 async function loadFarms(){
@@ -450,7 +461,8 @@ async function viewFeed(){
   renderFeedSummary(byM,hByM,sAgg);
   document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{state.feedUnit=b.dataset.unit;viewFeed();});
   document.getElementById('upLedger').onclick=()=>document.getElementById('ledgerFile').click();
-  document.getElementById('ledgerFile').onchange=e=>{const f=e.target.files[0]; if(f)parseLedger(f); e.target.value='';};
+  document.getElementById('ledgerFile').onchange=async e=>{const f=e.target.files[0]; e.target.value=''; if(!f)return;
+    try{await ensureXLSX();}catch(_){toast('엑셀 모듈 로드 실패(네트워크 확인)',true);return;} parseLedger(f);};
   document.getElementById('saveGrid').onclick=async()=>{
     const bm={}; document.querySelectorAll('#grid .cell').forEach(i=>{(bm[i.dataset.m]=bm[i.dataset.m]||{})[i.dataset.k]=num(i.value);});
     const ups=[]; Object.entries(bm).forEach(([m,o])=>{ if(Object.values(o).some(x=>x!==0)) ups.push({...o,farm_id:state.farmId,ym:ym(+m)}); });
@@ -734,6 +746,7 @@ document.getElementById('scUpload').onclick=()=>document.getElementById('scFile'
 document.getElementById('scFile').onchange=e=>{const f=e.target.files[0]; e.target.value=''; if(!f)return;
   const rd=new FileReader();
   rd.onload=async ev=>{
+    try{await ensureXLSX();}catch(_){toast('엑셀 모듈 로드 실패(네트워크 확인)',true);return;}
     let aoa; try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
       aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});}
     catch(err){toast('엑셀을 읽을 수 없습니다',true);return;}
