@@ -206,10 +206,11 @@ async function loadAll(){
         })
       } else {
         const c = byName.get(name)
-        if(!c.owner_name && pr.owner_name) c.owner_name = pr.owner_name
-        if(!c.location && pr.location) c.location = pr.location
-        if(!c.customer_type && pr.customer_type) c.customer_type = pr.customer_type
-        if(!c.trade_status && pr.trade_status) c.trade_status = pr.trade_status
+        // 프로필에서 직접 수정한 값이 미팅 값보다 우선
+        if(pr.owner_name) c.owner_name = pr.owner_name
+        if(pr.location) c.location = pr.location
+        if(pr.customer_type) c.customer_type = pr.customer_type
+        if(pr.trade_status) c.trade_status = pr.trade_status
       }
     }
 
@@ -449,8 +450,14 @@ function renderSummary(filtered){
   const farmsOnly = filtered.filter(c=>!(c.customer_type||'').includes('대리점'))
   const dealerCnt = filtered.length - farmsOnly.length
   const headOf = c => c.profile.scale || c.m_total || 0
+  // 거래 중 판단: 거래상태가 있으면 그 기준, 없으면 '기존' 거래처는 거래 중으로 간주
+  const isTrading = c => {
+    const ts = c.trade_status||''
+    if (ts) return ts.includes('거래 중')
+    return (c.customer_type||'').includes('기존')
+  }
   const totalHead = farmsOnly.reduce((a,c)=>a+headOf(c),0)
-  const trading = farmsOnly.filter(c=>(c.trade_status||'').includes('거래 중'))
+  const trading = farmsOnly.filter(isTrading)
   const tradingHead = trading.reduce((a,c)=>a+headOf(c),0)
   if (totalHead===0) return ''
   const ms = ((tradingHead/totalHead)*100).toFixed(1)
@@ -617,9 +624,35 @@ function renderForm(){
     <button class="btn btn-outline" onclick="openDetail('${esc(c.farm_name).replace(/'/g,"\\'")}')" style="margin-bottom:12px">← 돌아가기</button>
     <div class="card">
       <div style="font-size:15px;font-weight:700;margin-bottom:4px">${esc(c.farm_name)} 프로필</div>
-      <div style="font-size:11px;color:#888;margin-bottom:16px">대표자(${esc(c.owner_name)||'—'})·지역(${esc(c.location)||'—'})은 영업관리 미팅 기록에서 자동으로 가져옵니다.</div>
+      <div style="font-size:11px;color:#888;margin-bottom:16px">여기서 수정한 값이 영업관리 미팅 기록 값보다 우선 적용됩니다.</div>
 
       <div class="sec-title">👤 기본 정보</div>
+      ${(()=>{
+        const ct = p.customer_type || c.customer_type || ''
+        const curStatus = ct.includes('기존')?'기존':ct.includes('신규')?'신규':''
+        const curType = ct.includes('양돈장')?'양돈장':ct.includes('대리점')?'대리점':''
+        const curTs = p.trade_status || c.trade_status || ''
+        const curOwner = p.owner_name || c.owner_name || ''
+        const curCity = p.location || c.location || ''
+        return `
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">대표자</div><input id="fOwner" value="${esc(curOwner)}"></div>
+        <div><div class="form-label">지역</div>
+          <select id="fCity"><option value="">선택</option>${CITIES.map(x=>`<option ${curCity===x?'selected':''}>${x}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">구분</div>
+          <select id="fStatus"><option value="">선택</option><option ${curStatus==='기존'?'selected':''}>기존</option><option ${curStatus==='신규'?'selected':''}>신규</option></select>
+        </div>
+        <div><div class="form-label">업종</div>
+          <select id="fType"><option value="">선택</option><option ${curType==='양돈장'?'selected':''}>양돈장</option><option ${curType==='대리점'?'selected':''}>대리점</option></select>
+        </div>
+        <div><div class="form-label">거래 상태</div>
+          <select id="fTradeStatus"><option value="">선택</option><option ${curTs.includes('거래 중')?'selected':''}>거래 중</option><option ${curTs.includes('과거')?'selected':''}>과거 거래</option><option ${curTs==='미거래'?'selected':''}>미거래</option></select>
+        </div>
+      </div>`
+      })()}
       <div class="form-row" style="margin-bottom:16px">
         <div><div class="form-label">농장주</div><input id="fFarmer" value="${esc(p.farmer_name)}" placeholder="대표자와 같으면 비워두세요"></div>
         <div><div class="form-label">사업자번호</div><input id="fBiz" value="${esc(p.biz_no)}" placeholder="000-00-00000"></div>
@@ -737,6 +770,10 @@ async function saveProfile(){
 
   const payload = {
     farm_name: c.farm_name,
+    owner_name: document.getElementById('fOwner').value.trim(),
+    location: document.getElementById('fCity').value,
+    customer_type: [document.getElementById('fStatus').value, document.getElementById('fType').value].filter(Boolean).join('·'),
+    trade_status: document.getElementById('fTradeStatus').value,
     farmer_name: document.getElementById('fFarmer').value.trim(),
     biz_no: document.getElementById('fBiz').value.trim(),
     scale: Number(document.getElementById('fScale').value)||0,
@@ -766,6 +803,10 @@ async function saveProfile(){
 
   // 로컬 상태 갱신 후 상세로
   c.profile = { ...EMPTY_PROFILE, ...payload }
+  if(payload.owner_name) c.owner_name = payload.owner_name
+  if(payload.location) c.location = payload.location
+  if(payload.customer_type) c.customer_type = payload.customer_type
+  if(payload.trade_status) c.trade_status = payload.trade_status
   view = 'detail'; render(); window.scrollTo(0,0)
 }
 
