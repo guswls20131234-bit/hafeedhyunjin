@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>거래처 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',-apple-system,sans-serif;
+    background:#F5F6F4; color:#1a1a18; font-size:14px; }
+  .page { max-width:720px; margin:0 auto; padding:16px 14px 60px; }
+
+  .header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .avatar { width:38px; height:38px; border-radius:10px; background:#1D9E75; color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
+  .title { font-size:16px; font-weight:700; }
+  .sub { font-size:12px; color:#888; margin-top:1px; }
+
+  .card { background:#fff; border:0.5px solid rgba(0,0,0,0.08); border-radius:12px; padding:16px; }
+
+  .filter-box { background:#fff; border:0.5px solid rgba(0,0,0,0.08); border-radius:10px;
+    padding:12px 14px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px; }
+  .filter-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .filter-label { font-size:11px; color:#888; width:36px; flex-shrink:0; }
+  .pill { padding:4px 12px; border-radius:99px; font-size:11px; font-weight:500;
+    cursor:pointer; border:none; font-family:inherit; background:#F5F6F4; color:#555; }
+  .pill.on { background:#1a4a2e; color:#fff; }
+
+  .farm-card { background:#fff; border:0.5px solid rgba(0,0,0,0.08); border-radius:12px;
+    padding:14px 16px; margin-bottom:10px; cursor:pointer; transition:box-shadow 0.15s; }
+  .farm-card:hover { box-shadow:0 2px 10px rgba(0,0,0,0.06); }
+  .tag { font-size:10px; padding:1px 8px; border-radius:99px; font-weight:600; white-space:nowrap; }
+  .tag-green { background:#E1F5EE; color:#085041; }
+  .tag-blue  { background:#E6F1FB; color:#0C447C; }
+  .tag-red   { background:#FCEBEB; color:#A32D2D; }
+  .tag-gray  { background:#F1EFE8; color:#5F5E5A; }
+  .tag-amber { background:#FAEEDA; color:#633806; }
+
+  .btn { border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:600;
+    cursor:pointer; font-family:inherit; }
+  .btn:disabled { opacity:0.6; cursor:not-allowed; }
+  .btn-green { background:#1D9E75; color:#fff; }
+  .btn-outline { background:#fff; color:#555; border:0.5px solid rgba(0,0,0,0.12); }
+  .btn-red { background:#FCEBEB; color:#A32D2D; border:0.5px solid #F09595; }
+
+  .sec-title { font-size:12px; font-weight:700; color:#085041; margin-bottom:8px;
+    display:flex; align-items:center; gap:5px; }
+  .sec-note { font-weight:400; font-size:10px; color:#aaa; }
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .info-item { background:#F5F6F4; border-radius:8px; padding:8px 12px; }
+  .info-label { font-size:10px; color:#888; margin-bottom:2px; }
+  .info-val { font-size:14px; font-weight:600; color:#1a1a18; }
+  .info-val small { font-size:11px; font-weight:400; color:#888; margin-left:2px; }
+  .memo-box { font-size:12px; color:#666; background:#FAF9F5; border-radius:8px;
+    padding:9px 12px; margin-top:8px; line-height:1.6; }
+
+  .credit-row { display:flex; justify-content:space-between; align-items:center;
+    padding:9px 12px; border-radius:8px; background:#F5F6F4; margin-bottom:6px; font-size:13px; }
+  .credit-rank { font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px;
+    background:#1a4a2e; color:#fff; margin-right:8px; }
+
+  .visit-item { display:flex; gap:10px; }
+  .visit-line { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
+  .visit-dot { width:9px; height:9px; border-radius:99px; background:#1D9E75; margin-top:5px; }
+  .visit-bar { width:1.5px; flex:1; background:rgba(0,0,0,0.08); margin:3px 0; }
+  .visit-body { flex:1; padding-bottom:16px; }
+  .visit-date { font-size:12px; font-weight:700; color:#085041; }
+  .visit-text { font-size:13px; color:#333; line-height:1.65; margin-top:4px;
+    background:#F5F6F4; border-radius:0 10px 10px 10px; padding:10px 12px; white-space:pre-wrap; }
+  .visit-del { font-size:11px; color:#bbb; cursor:pointer; background:none; border:none;
+    font-family:inherit; padding:0; margin-left:8px; }
+  .visit-del:hover { color:#A32D2D; }
+
+  input, select, textarea { width:100%; padding:8px 12px; border:0.5px solid rgba(0,0,0,0.12);
+    border-radius:8px; font-size:14px; font-family:inherit; outline:none; background:#fff; }
+  input:focus, textarea:focus { border-color:#1D9E75; }
+  textarea { resize:vertical; min-height:64px; line-height:1.6; }
+  .form-label { font-size:11px; color:#888; margin-bottom:4px; }
+  .form-row { display:flex; gap:8px; }
+  .form-row > div { flex:1; }
+  @media (max-width:480px){ .form-row { flex-direction:column; } }
+
+  .empty { background:#fff; border-radius:12px; padding:40px; text-align:center;
+    border:0.5px solid rgba(0,0,0,0.08); color:#aaa; font-size:13px; }
+  .loading { text-align:center; padding:40px; color:#aaa; font-size:13px; }
+  .err-box { background:#FCEBEB; border:0.5px solid #F09595; border-radius:10px;
+    padding:14px 16px; font-size:13px; color:#791F1F; line-height:1.7; }
+
+  .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .login-card { width:320px; background:#fff; border:0.5px solid rgba(0,0,0,0.08);
+    border-radius:12px; padding:24px; text-align:center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   ★★★ 설정 — 이 두 줄만 본인 프로젝트 값으로 바꾸세요 ★★★
+   Supabase Dashboard > Project Settings > API 에서 확인
+   (기존 React 프로젝트의 src/lib/supabase.js 에 있는 값과 동일)
+   ============================================================ */
+const SUPABASE_URL = 'https://vsljsjqxcmielpxckjrn.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzbGpzanF4Y21pZWxweGNranJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjE0NzgsImV4cCI6MjA5MTkzNzQ3OH0.K8-tfAuMt_7gWQ7vyZwgeZ6LQiOf7B9V1qwSYbu2eY4'
+
+const ADMIN_PASSWORD = '5302'
+/* ============================================================ */
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+/* ---------- 상태 ---------- */
+let authed = false
+let view = 'list'            // list | detail | form
+let clients = []             // meetings에서 만든 농장 리스트 (+profile 병합)
+let visits = []              // 선택 농장 방문기록
+let visitCounts = {}
+let selName = null
+let loading = true
+let loadError = null
+let cityFilter = '', tradeFilter = '', prrsFilter = ''
+
+const EMPTY_PROFILE = {
+  farmer_name:'', biz_no:'', scale:0, sow_count:0,
+  feed_jadon:'', feed_rest:'', feed_amount:0,
+  ship_type:'', ship_to:'', ship_monthly:0, ship_memo:'',
+  med_supplier:'', gilt_source:'', gilt_breed:'',
+  prrs:'', disease_memo:'',
+  trade_type:'', credit_limit:0, credits:[], asset_memo:'',
+}
+
+/* ---------- 유틸 ---------- */
+const fmt = n => Number(n||0).toLocaleString()
+const esc = s => String(s??'').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+const today = () => new Date().toISOString().slice(0,10)
+const app = () => document.getElementById('app')
+
+function prrsTag(p){ return p==='양성'?'tag-red':p==='음성'?'tag-blue':'tag-gray' }
+function prrsColor(p){ return p==='양성'?'#A32D2D':p==='음성'?'#0C447C':'#888' }
+function prrsBg(p){ return p==='양성'?'#FCEBEB':p==='음성'?'#E6F1FB':'#F5F6F4' }
+function shipTag(t){ return t==='사료회사 대행'?'tag-green':t==='혼합'?'tag-amber':'tag-gray' }
+function selClient(){ return clients.find(c=>c.farm_name===selName) }
+
+/* ---------- 데이터 로드 ---------- */
+async function loadAll(){
+  loading = true; loadError = null; render()
+  try {
+    const [mRes, pRes, vRes] = await Promise.all([
+      sb.from('meetings').select('*').order('created_at',{ascending:false}),
+      sb.from('client_profiles').select('*'),
+      sb.from('client_visits').select('farm_name'),
+    ])
+    if (mRes.error) throw new Error('meetings: '+mRes.error.message)
+    if (pRes.error) throw new Error('client_profiles: '+pRes.error.message+' (SQL을 먼저 실행했는지 확인하세요)')
+    if (vRes.error) throw new Error('client_visits: '+vRes.error.message)
+
+    const profileMap = {}
+    for (const pr of (pRes.data||[])) profileMap[pr.farm_name] = pr
+
+    const byName = new Map()
+    for (const m of (mRes.data||[])) {
+      const name = (m.farm_name||'').trim()
+      if (!name) continue
+      if (!byName.has(name)) {
+        byName.set(name, {
+          farm_name:name,
+          owner_name:m.owner_name||'',
+          location:m.location||'',
+          m_sow:Number(m.sow_count)||0,
+          m_total:Number(m.total_head)||0,
+          last_meeting:m.meeting_date||(m.created_at||'').slice(0,10),
+          meeting_count:1,
+          profile:{...EMPTY_PROFILE, ...(profileMap[name]||{})},
+        })
+      } else {
+        const c = byName.get(name)
+        c.meeting_count++
+        if(!c.owner_name && m.owner_name) c.owner_name = m.owner_name
+        if(!c.location && m.location) c.location = m.location
+        if(!c.m_sow && Number(m.sow_count)) c.m_sow = Number(m.sow_count)
+        if(!c.m_total && Number(m.total_head)) c.m_total = Number(m.total_head)
+      }
+    }
+
+    visitCounts = {}
+    for (const v of (vRes.data||[])) visitCounts[v.farm_name] = (visitCounts[v.farm_name]||0)+1
+
+    clients = [...byName.values()].sort((a,b)=>a.farm_name.localeCompare(b.farm_name,'ko'))
+  } catch(e){
+    loadError = e.message
+  }
+  loading = false; render()
+}
+
+async function loadVisits(name){
+  const { data } = await sb.from('client_visits').select('*')
+    .eq('farm_name',name)
+    .order('visit_date',{ascending:false})
+    .order('created_at',{ascending:false})
+  visits = data||[]
+}
+
+/* ---------- 렌더 ---------- */
+function render(){
+  if (!authed) { app().innerHTML = renderLogin(); return }
+  if (view==='detail' && selClient()) app().innerHTML = renderDetail()
+  else if (view==='form' && selClient()) app().innerHTML = renderForm()
+  else { view='list'; app().innerHTML = renderList() }
+}
+
+function renderLogin(){
+  return `
+  <div class="login-wrap">
+    <div class="login-card">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px">거래처 관리</div>
+      <div style="font-size:13px;color:#888;margin-bottom:20px">관리자 로그인</div>
+      <input type="password" id="pwInput" placeholder="비밀번호" style="margin-bottom:8px"
+        onkeydown="if(event.key==='Enter')tryLogin()">
+      <div id="pwErr" style="color:#E24B4A;font-size:12px;margin-bottom:8px;display:none">비밀번호가 틀렸습니다</div>
+      <button class="btn btn-green" style="width:100%" onclick="tryLogin()">로그인</button>
+    </div>
+  </div>`
+}
+
+function tryLogin(){
+  if (document.getElementById('pwInput').value === ADMIN_PASSWORD) {
+    authed = true; render(); loadAll()
+  } else {
+    document.getElementById('pwErr').style.display = 'block'
+  }
+}
+
+/* ----- 목록 ----- */
+function renderList(){
+  const configured = !SUPABASE_URL.includes('YOUR_PROJECT')
+  const filtered = clients
+    .filter(c=>!cityFilter || c.location===cityFilter)
+    .filter(c=>!tradeFilter || c.profile.trade_type===tradeFilter)
+    .filter(c=>!prrsFilter || c.profile.prrs===prrsFilter)
+  const usedCities = [...new Set(clients.map(c=>c.location).filter(Boolean))]
+
+  return `
+  <div class="page">
+    <div class="header">
+      <div class="avatar">거</div>
+      <div><div class="title">거래처 관리</div><div class="sub">영업관리 미팅 기록 기준 자동 생성</div></div>
+    </div>
+
+    ${!configured ? `<div class="err-box" style="margin-bottom:12px">
+      ⚙️ <b>설정 필요:</b> 이 HTML 파일을 메모장 등으로 열어 상단의
+      <b>SUPABASE_URL</b>과 <b>SUPABASE_ANON_KEY</b>를 본인 프로젝트 값으로 바꿔주세요.<br>
+      (Supabase Dashboard → Project Settings → API)
+    </div>` : ''}
+
+    ${loadError ? `<div class="err-box" style="margin-bottom:12px">❌ 불러오기 실패: ${esc(loadError)}
+      <div style="margin-top:8px"><button class="btn btn-outline" onclick="loadAll()">다시 시도</button></div></div>` : ''}
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:14px;font-weight:700">거래처 프로필 <span style="font-weight:400;font-size:12px;color:#888">(${filtered.length}곳)</span></div>
+      <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="loadAll()">🔄 새로고침</button>
+    </div>
+
+    ${clients.length>0 ? `
+    <div class="filter-box">
+      <div class="filter-row">
+        <span class="filter-label">거래</span>
+        <button class="pill ${!tradeFilter?'on':''}" onclick="setF('trade','')">전체</button>
+        <button class="pill" style="${tradeFilter==='선입금'?'background:#378ADD;color:#fff':''}" onclick="setF('trade','선입금')">선입금</button>
+        <button class="pill" style="${tradeFilter==='여신'?'background:#1D9E75;color:#fff':''}" onclick="setF('trade','여신')">여신</button>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">PRRS</span>
+        <button class="pill ${!prrsFilter?'on':''}" onclick="setF('prrs','')">전체</button>
+        <button class="pill" style="${prrsFilter==='음성'?'background:#0C447C;color:#fff':''}" onclick="setF('prrs','음성')">음성</button>
+        <button class="pill" style="${prrsFilter==='양성'?'background:#A32D2D;color:#fff':''}" onclick="setF('prrs','양성')">양성</button>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">지역</span>
+        <button class="pill ${!cityFilter?'on':''}" onclick="setF('city','')">전체</button>
+        ${usedCities.map(c=>`<button class="pill ${cityFilter===c?'on':''}" onclick="setF('city','${esc(c)}')">${esc(c)}</button>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${loading ? `<div class="loading">불러오는 중...</div>`
+    : filtered.length===0 ? `<div class="empty">${clients.length===0?'영업관리에서 미팅을 기록하면 거래처가 자동으로 생성됩니다.':'조건에 맞는 거래처가 없습니다.'}</div>`
+    : filtered.map(c=>{
+      const p = c.profile
+      const scale = p.scale || c.m_total || 0
+      const sow = p.sow_count || c.m_sow || 0
+      return `
+      <div class="farm-card" onclick="openDetail('${esc(c.farm_name).replace(/'/g,"\\'")}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px">
+              <span style="font-weight:700;font-size:15px">${esc(c.farm_name)}</span>
+              ${p.trade_type?`<span class="tag ${p.trade_type==='여신'?'tag-green':'tag-blue'}">${p.trade_type}</span>`:''}
+              ${c.location?`<span class="tag tag-gray">${esc(c.location)}</span>`:''}
+              ${p.ship_type?`<span class="tag ${shipTag(p.ship_type)}">${esc(p.ship_type)}</span>`:''}
+              ${p.prrs?`<span class="tag ${prrsTag(p.prrs)}">PRRS ${p.prrs}</span>`:''}
+            </div>
+            <div style="font-size:11px;color:#888">
+              대표 ${esc(c.owner_name)||'—'}${p.farmer_name&&p.farmer_name!==c.owner_name?' · 농장주 '+esc(p.farmer_name):''}${p.biz_no?' · '+esc(p.biz_no):''}
+            </div>
+          </div>
+          ${c.last_meeting?`<div style="font-size:10px;color:#aaa;text-align:right;white-space:nowrap">최근 미팅<br><b style="color:#085041;font-size:11px">${esc(c.last_meeting)}</b></div>`:''}
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#555">
+          ${scale>0?`<span>사육 <b>${fmt(scale)}두</b></span>`:''}
+          ${sow>0?`<span>모돈 <b>${fmt(sow)}두</b></span>`:''}
+          ${p.feed_amount>0?`<span>사료 <b>월 ${fmt(p.feed_amount)}톤</b></span>`:''}
+          ${p.ship_monthly>0?`<span>출하 <b>월 ${fmt(p.ship_monthly)}두</b></span>`:''}
+          <span>미팅 <b>${c.meeting_count}건</b></span>
+          <span>방문기록 <b style="color:#1D9E75">${visitCounts[c.farm_name]||0}건</b></span>
+        </div>
+      </div>`
+    }).join('')}
+  </div>`
+}
+
+/* ----- 상세 ----- */
+function renderDetail(){
+  const c = selClient(), p = c.profile
+  const credits = Array.isArray(p.credits)?p.credits:[]
+  const totalCredit = credits.reduce((a,x)=>a+Number(x.amount||0),0)
+  const scale = p.scale || c.m_total || 0
+  const sow = p.sow_count || c.m_sow || 0
+  const scaleFromM = !p.scale && c.m_total>0
+  const sowFromM = !p.sow_count && c.m_sow>0
+
+  return `
+  <div class="page">
+    <button class="btn btn-outline" onclick="goList()" style="margin-bottom:12px">← 목록으로</button>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:18px;font-weight:700">${esc(c.farm_name)}</span>
+            ${p.trade_type?`<span class="tag ${p.trade_type==='여신'?'tag-green':'tag-blue'}">${p.trade_type}</span>`:''}
+            ${c.location?`<span class="tag tag-gray">${esc(c.location)}</span>`:''}
+            ${p.prrs?`<span class="tag ${prrsTag(p.prrs)}">PRRS ${p.prrs}</span>`:''}
+          </div>
+          <div style="font-size:12px;color:#888;margin-top:3px">
+            ${p.biz_no?'사업자번호 '+esc(p.biz_no):'사업자번호 미입력'} · 미팅 ${c.meeting_count}건${c.last_meeting?' · 최근 '+esc(c.last_meeting):''}
+          </div>
+        </div>
+        <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="openForm()">✏️ 프로필 수정</button>
+      </div>
+
+      <div class="sec-title">👤 기본 정보 <span class="sec-note">대표자·지역은 영업관리 미팅에서 자동</span></div>
+      <div class="info-grid" style="margin-bottom:16px">
+        <div class="info-item"><div class="info-label">대표자</div><div class="info-val">${esc(c.owner_name)||'—'}</div></div>
+        <div class="info-item"><div class="info-label">농장주</div><div class="info-val">${esc(p.farmer_name)||esc(c.owner_name)||'—'}</div></div>
+      </div>
+
+      <div class="sec-title">🐷 사육 · 사료</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-label">사육규모${scaleFromM?' (영업관리 기준)':''}</div>
+          <div class="info-val">${scale?fmt(scale):'—'}<small>${scale?'두':''}</small></div></div>
+        <div class="info-item"><div class="info-label">모돈수${sowFromM?' (영업관리 기준)':''}</div>
+          <div class="info-val">${sow?fmt(sow):'—'}<small>${sow?'두':''}</small></div></div>
+        <div class="info-item"><div class="info-label">사료 (자돈구간)</div><div class="info-val" style="font-size:13px">${esc(p.feed_jadon)||'—'}</div></div>
+        <div class="info-item"><div class="info-label">사료 (나머지구간)</div><div class="info-val" style="font-size:13px">${esc(p.feed_rest)||'—'}</div></div>
+        <div class="info-item" style="grid-column:1/-1;background:#E1F5EE">
+          <div class="info-label" style="color:#085041">월 사료량</div>
+          <div class="info-val" style="color:#085041">${p.feed_amount?fmt(p.feed_amount):'—'}<small style="color:#085041">${p.feed_amount?'톤/월':''}</small></div>
+        </div>
+      </div>
+
+      <div class="sec-title" style="margin-top:16px">🚚 출하 정보</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-label">출하 방식</div><div class="info-val" style="font-size:13px">${esc(p.ship_type)||'—'}</div></div>
+        <div class="info-item"><div class="info-label">월 출하두수</div><div class="info-val">${p.ship_monthly?fmt(p.ship_monthly):'—'}<small>${p.ship_monthly?'두':''}</small></div></div>
+        <div class="info-item" style="grid-column:1/-1"><div class="info-label">출하처</div><div class="info-val" style="font-size:13px">${esc(p.ship_to)||'—'}</div></div>
+      </div>
+      ${p.ship_memo?`<div class="memo-box">🚛 ${esc(p.ship_memo)}</div>`:''}
+
+      <div class="sec-title" style="margin-top:16px">💊 약품 · 후보돈</div>
+      <div class="info-grid">
+        <div class="info-item" style="grid-column:1/-1"><div class="info-label">약품 구매처</div><div class="info-val" style="font-size:13px">${esc(p.med_supplier)||'—'}</div></div>
+        <div class="info-item"><div class="info-label">후보돈 구입처</div><div class="info-val" style="font-size:13px">${esc(p.gilt_source)||'—'}</div></div>
+        <div class="info-item"><div class="info-label">종 (품종)</div><div class="info-val" style="font-size:13px">${esc(p.gilt_breed)||'—'}</div></div>
+      </div>
+
+      <div class="sec-title" style="margin-top:16px">🦠 질병 현황</div>
+      <div style="display:flex;align-items:center;gap:10px;background:${prrsBg(p.prrs)};border-radius:8px;padding:10px 14px">
+        <span style="font-size:12px;color:#666">PRRS</span>
+        <span style="font-size:15px;font-weight:700;color:${prrsColor(p.prrs)}">${esc(p.prrs)||'미확인'}</span>
+        ${p.prrs==='양성'?'<span style="font-size:11px;color:#A32D2D">⚠️ 안정화 관리 대상</span>':''}
+      </div>
+      ${p.disease_memo?`<div class="memo-box">🩺 ${esc(p.disease_memo)}</div>`:''}
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="sec-title">💰 재산평가 내역</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="info-item" style="flex:1;min-width:120px">
+          <div class="info-label">거래 방식</div>
+          <div class="info-val" style="color:${p.trade_type==='여신'?'#085041':'#0C447C'}">${esc(p.trade_type)||'—'}</div>
+        </div>
+        ${p.trade_type==='여신'?`
+        <div class="info-item" style="flex:1;min-width:120px;background:#E1F5EE">
+          <div class="info-label" style="color:#085041">당사 여신 한도</div>
+          <div class="info-val" style="color:#085041">${fmt(p.credit_limit)}<small style="color:#085041">원</small></div>
+        </div>`:''}
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px">담보 · 채권 순위</div>
+      ${credits.length===0?`<div style="font-size:12px;color:#aaa;padding:8px 0">등록된 내역이 없습니다.</div>`:
+        credits.map(x=>`
+        <div class="credit-row"><div><span class="credit-rank">${x.rank}순위</span>${esc(x.holder)}</div><b>${fmt(x.amount)}원</b></div>`).join('')
+        + `<div class="credit-row" style="background:#1a4a2e;color:#fff"><span style="font-size:12px">담보 설정 합계</span><b>${fmt(totalCredit)}원</b></div>`}
+      ${p.asset_memo?`<div class="memo-box">📝 ${esc(p.asset_memo)}</div>`:''}
+    </div>
+
+    <div class="card">
+      <div class="sec-title">🗓️ 방문 기록 <span style="font-weight:400;color:#888">(${visits.length}건)</span></div>
+      <div style="background:#F5F6F4;border-radius:10px;padding:12px;margin-bottom:16px">
+        <div style="max-width:160px;margin-bottom:8px">
+          <div class="form-label">방문일</div>
+          <input type="date" id="visitDate" value="${today()}">
+        </div>
+        <div class="form-label">미팅 내용</div>
+        <textarea id="visitText" placeholder="예) 사료 단가 협의, 농장 현안, 다음 액션 등"></textarea>
+        <button class="btn btn-green" id="visitBtn" style="width:100%;margin-top:8px" onclick="addVisit()">+ 기록 추가</button>
+      </div>
+      ${visits.length===0?`<div style="font-size:12px;color:#aaa;text-align:center;padding:12px 0">아직 방문 기록이 없습니다. 첫 기록을 남겨보세요.</div>`:
+        visits.map((v,i)=>`
+        <div class="visit-item">
+          <div class="visit-line">
+            <div class="visit-dot"></div>
+            ${i<visits.length-1?'<div class="visit-bar"></div>':''}
+          </div>
+          <div class="visit-body">
+            <span class="visit-date">${esc(v.visit_date)}</span>
+            <button class="visit-del" onclick="delVisit(${v.id})">삭제</button>
+            <div class="visit-text">${esc(v.content)}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`
+}
+
+/* ----- 프로필 수정 폼 ----- */
+function renderForm(){
+  const c = selClient(), p = c.profile
+  const creditRows = (Array.isArray(p.credits)&&p.credits.length>0)?p.credits:[{rank:1,holder:'',amount:''}]
+
+  return `
+  <div class="page">
+    <button class="btn btn-outline" onclick="openDetail('${esc(c.farm_name).replace(/'/g,"\\'")}')" style="margin-bottom:12px">← 돌아가기</button>
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">${esc(c.farm_name)} 프로필</div>
+      <div style="font-size:11px;color:#888;margin-bottom:16px">대표자(${esc(c.owner_name)||'—'})·지역(${esc(c.location)||'—'})은 영업관리 미팅 기록에서 자동으로 가져옵니다.</div>
+
+      <div class="sec-title">👤 기본 정보</div>
+      <div class="form-row" style="margin-bottom:16px">
+        <div><div class="form-label">농장주</div><input id="fFarmer" value="${esc(p.farmer_name)}" placeholder="대표자와 같으면 비워두세요"></div>
+        <div><div class="form-label">사업자번호</div><input id="fBiz" value="${esc(p.biz_no)}" placeholder="000-00-00000"></div>
+      </div>
+
+      <div class="sec-title">🐷 사육 · 사료</div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">사육규모 (두)</div><input id="fScale" type="number" value="${p.scale||''}" placeholder="${c.m_total?'영업관리 기준 '+fmt(c.m_total):''}"></div>
+        <div><div class="form-label">모돈수 (두)</div><input id="fSow" type="number" value="${p.sow_count||''}" placeholder="${c.m_sow?'영업관리 기준 '+fmt(c.m_sow):''}"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">사료 — 자돈구간</div><input id="fFeedJ" value="${esc(p.feed_jadon)}" placeholder="제품명"></div>
+        <div><div class="form-label">사료 — 나머지구간</div><input id="fFeedR" value="${esc(p.feed_rest)}" placeholder="제품명"></div>
+      </div>
+      <div style="margin-bottom:16px"><div class="form-label">월 사료량 (톤)</div><input id="fFeedAmt" type="number" value="${p.feed_amount||''}"></div>
+
+      <div class="sec-title">🚚 출하 정보</div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">출하 방식</div>
+          <select id="fShipType">
+            <option value="">선택</option>
+            <option ${p.ship_type==='자체 출하'?'selected':''}>자체 출하</option>
+            <option ${p.ship_type==='사료회사 대행'?'selected':''}>사료회사 대행</option>
+            <option ${p.ship_type==='혼합'?'selected':''}>혼합</option>
+          </select>
+        </div>
+        <div><div class="form-label">월 출하두수 (두)</div><input id="fShipMonthly" type="number" value="${p.ship_monthly||''}"></div>
+      </div>
+      <div style="margin-bottom:8px"><div class="form-label">출하처</div><input id="fShipTo" value="${esc(p.ship_to)}" placeholder="예) 부경양돈 김해공판장"></div>
+      <div style="margin-bottom:16px"><div class="form-label">출하 메모</div><textarea id="fShipMemo" placeholder="예) 당사 알선 비율, 출하 스케줄 특이사항 등">${esc(p.ship_memo)}</textarea></div>
+
+      <div class="sec-title">💊 약품 · 후보돈</div>
+      <div style="margin-bottom:8px"><div class="form-label">약품 구매처</div><input id="fMed" value="${esc(p.med_supplier)}" placeholder="예) OO동물병원, OO축산약품"></div>
+      <div class="form-row" style="margin-bottom:16px">
+        <div><div class="form-label">후보돈 구입처</div><input id="fGiltSrc" value="${esc(p.gilt_source)}" placeholder="예) 가야육종, 자가생산"></div>
+        <div><div class="form-label">종 (품종)</div><input id="fGiltBreed" value="${esc(p.gilt_breed)}" placeholder="예) F1(YL), 듀록"></div>
+      </div>
+
+      <div class="sec-title">🦠 질병 현황</div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">PRRS</div>
+          <select id="fPrrs">
+            <option value="">미확인</option>
+            <option ${p.prrs==='음성'?'selected':''}>음성</option>
+            <option ${p.prrs==='양성'?'selected':''}>양성</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      <div style="margin-bottom:16px"><div class="form-label">질병 메모</div><textarea id="fDisease" placeholder="예) 검사 일자, 백신 프로그램, 기타 질병 이력">${esc(p.disease_memo)}</textarea></div>
+
+      <div class="sec-title">💰 재산평가</div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">거래 방식</div>
+          <select id="fTrade">
+            <option value="">선택</option>
+            <option ${p.trade_type==='선입금'?'selected':''}>선입금</option>
+            <option ${p.trade_type==='여신'?'selected':''}>여신</option>
+          </select>
+        </div>
+        <div><div class="form-label">당사 여신 한도 (원)</div><input id="fLimit" type="number" value="${p.credit_limit||''}"></div>
+      </div>
+
+      <div class="form-label" style="margin-bottom:6px">담보 · 채권 순위 <span style="color:#bbb">(예: 1순위 농협 5억, 2순위 사료회사 1.5억)</span></div>
+      <div id="creditList">${creditRows.map((x,i)=>creditRowHtml(i,x)).join('')}</div>
+      <button class="btn btn-outline" style="width:100%;margin:6px 0 12px;font-size:12px" onclick="addCreditRow()">+ 순위 추가</button>
+
+      <div style="margin-bottom:20px"><div class="form-label">재산평가 메모</div><textarea id="fMemo" placeholder="담보 감정가, 특이사항 등">${esc(p.asset_memo)}</textarea></div>
+
+      <button class="btn btn-green" id="saveBtn" style="width:100%;padding:12px" onclick="saveProfile()">저장</button>
+    </div>
+  </div>`
+}
+
+function creditRowHtml(i, c={}){
+  return `
+  <div class="form-row credit-input-row" style="margin-bottom:6px;align-items:center;flex-direction:row">
+    <div style="max-width:64px;flex:none"><input type="number" class="cRank" value="${c.rank||i+1}" placeholder="순위"></div>
+    <div><input class="cHolder" value="${esc(c.holder||'')}" placeholder="금융권 / 사료회사 등"></div>
+    <div><input type="number" class="cAmount" value="${c.amount||''}" placeholder="금액(원)"></div>
+    <button class="btn btn-red" style="flex:none;padding:8px 10px;font-size:12px" onclick="this.parentElement.remove()">✕</button>
+  </div>`
+}
+function addCreditRow(){
+  const list = document.getElementById('creditList')
+  list.insertAdjacentHTML('beforeend', creditRowHtml(list.querySelectorAll('.credit-input-row').length))
+}
+
+/* ---------- 액션 ---------- */
+function setF(kind, val){
+  if (kind==='city') cityFilter = (cityFilter===val)?'':val
+  if (kind==='trade') tradeFilter = (tradeFilter===val)?'':val
+  if (kind==='prrs') prrsFilter = (prrsFilter===val)?'':val
+  render()
+}
+function goList(){ view='list'; render() }
+async function openDetail(name){
+  selName = name; view='detail'
+  await loadVisits(name)
+  render(); window.scrollTo(0,0)
+}
+function openForm(){ view='form'; render(); window.scrollTo(0,0) }
+
+async function saveProfile(){
+  const c = selClient()
+  const btn = document.getElementById('saveBtn')
+  btn.disabled = true; btn.textContent = '저장 중...'
+
+  const credits = [...document.querySelectorAll('.credit-input-row')].map(r=>({
+    rank:Number(r.querySelector('.cRank').value)||0,
+    holder:r.querySelector('.cHolder').value.trim(),
+    amount:Number(r.querySelector('.cAmount').value)||0,
+  })).filter(x=>x.holder||x.amount).sort((a,b)=>a.rank-b.rank)
+
+  const payload = {
+    farm_name: c.farm_name,
+    farmer_name: document.getElementById('fFarmer').value.trim(),
+    biz_no: document.getElementById('fBiz').value.trim(),
+    scale: Number(document.getElementById('fScale').value)||0,
+    sow_count: Number(document.getElementById('fSow').value)||0,
+    feed_jadon: document.getElementById('fFeedJ').value.trim(),
+    feed_rest: document.getElementById('fFeedR').value.trim(),
+    feed_amount: Number(document.getElementById('fFeedAmt').value)||0,
+    ship_type: document.getElementById('fShipType').value,
+    ship_to: document.getElementById('fShipTo').value.trim(),
+    ship_monthly: Number(document.getElementById('fShipMonthly').value)||0,
+    ship_memo: document.getElementById('fShipMemo').value.trim(),
+    med_supplier: document.getElementById('fMed').value.trim(),
+    gilt_source: document.getElementById('fGiltSrc').value.trim(),
+    gilt_breed: document.getElementById('fGiltBreed').value.trim(),
+    prrs: document.getElementById('fPrrs').value,
+    disease_memo: document.getElementById('fDisease').value.trim(),
+    trade_type: document.getElementById('fTrade').value,
+    credit_limit: Number(document.getElementById('fLimit').value)||0,
+    credits,
+    asset_memo: document.getElementById('fMemo').value.trim(),
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error } = await sb.from('client_profiles').upsert(payload, { onConflict:'farm_name' })
+  btn.disabled = false; btn.textContent = '저장'
+  if (error) { alert('저장 실패: '+error.message); return }
+
+  // 로컬 상태 갱신 후 상세로
+  c.profile = { ...EMPTY_PROFILE, ...payload }
+  view = 'detail'; render(); window.scrollTo(0,0)
+}
+
+async function addVisit(){
+  const c = selClient()
+  const date = document.getElementById('visitDate').value
+  const text = document.getElementById('visitText').value.trim()
+  if (!date || !text) { alert('방문일과 내용을 입력해주세요.'); return }
+  const btn = document.getElementById('visitBtn')
+  btn.disabled = true; btn.textContent = '저장 중...'
+  const { error } = await sb.from('client_visits').insert({ farm_name:c.farm_name, visit_date:date, content:text })
+  btn.disabled = false; btn.textContent = '+ 기록 추가'
+  if (error) { alert('저장 실패: '+error.message); return }
+  visitCounts[c.farm_name] = (visitCounts[c.farm_name]||0)+1
+  await loadVisits(c.farm_name)
+  render()
+}
+
+async function delVisit(id){
+  if (!confirm('이 방문 기록을 삭제할까요?')) return
+  const c = selClient()
+  const { error } = await sb.from('client_visits').delete().eq('id',id)
+  if (error) { alert('삭제 실패: '+error.message); return }
+  visitCounts[c.farm_name] = Math.max(0,(visitCounts[c.farm_name]||1)-1)
+  await loadVisits(c.farm_name)
+  render()
+}
+
+render()
+</script>
+</body>
+</html>
