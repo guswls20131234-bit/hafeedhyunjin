@@ -118,9 +118,12 @@ let visitCounts = {}
 let selName = null
 let loading = true
 let loadError = null
-let cityFilter = '', tradeFilter = '', prrsFilter = ''
+let cityFilter = '', tradeFilter = '', prrsFilter = '', typeFilter = ''
+
+const CITIES = ['창원','김해','진주','밀양','함안','창녕','고성','사천','거제','통영','의령','하동','산청','함양','거창','합천','양산']
 
 const EMPTY_PROFILE = {
+  owner_name:'', location:'', customer_type:'', trade_status:'',
   farmer_name:'', biz_no:'', scale:0, sow_count:0,
   feed_jadon:'', feed_rest:'', feed_amount:0,
   ship_type:'', ship_to:'', ship_monthly:0, ship_memo:'',
@@ -168,6 +171,8 @@ async function loadAll(){
           location:m.location||'',
           m_sow:Number(m.sow_count)||0,
           m_total:Number(m.total_head)||0,
+          customer_type:m.customer_type||'',   // 예) "기존·양돈장", "신규·대리점"
+          trade_status:m.trade_status||'',     // 예) "거래 중", "과거 거래"
           last_meeting:m.meeting_date||(m.created_at||'').slice(0,10),
           meeting_count:1,
           profile:{...EMPTY_PROFILE, ...(profileMap[name]||{})},
@@ -179,6 +184,32 @@ async function loadAll(){
         if(!c.location && m.location) c.location = m.location
         if(!c.m_sow && Number(m.sow_count)) c.m_sow = Number(m.sow_count)
         if(!c.m_total && Number(m.total_head)) c.m_total = Number(m.total_head)
+        if(!c.customer_type && m.customer_type) c.customer_type = m.customer_type
+        if(!c.trade_status && m.trade_status) c.trade_status = m.trade_status
+      }
+    }
+
+    // 직접 등록된 거래처(미팅 기록 없음) 병합 + 미팅 정보 빈 곳 프로필로 보충
+    for (const pr of (pRes.data||[])) {
+      const name = (pr.farm_name||'').trim()
+      if (!name) continue
+      if (!byName.has(name)) {
+        byName.set(name, {
+          farm_name:name,
+          owner_name:pr.owner_name||'',
+          location:pr.location||'',
+          m_sow:0, m_total:0,
+          customer_type:pr.customer_type||'',
+          trade_status:pr.trade_status||'',
+          last_meeting:'', meeting_count:0,
+          profile:{...EMPTY_PROFILE, ...pr},
+        })
+      } else {
+        const c = byName.get(name)
+        if(!c.owner_name && pr.owner_name) c.owner_name = pr.owner_name
+        if(!c.location && pr.location) c.location = pr.location
+        if(!c.customer_type && pr.customer_type) c.customer_type = pr.customer_type
+        if(!c.trade_status && pr.trade_status) c.trade_status = pr.trade_status
       }
     }
 
@@ -203,7 +234,8 @@ async function loadVisits(name){
 /* ---------- 렌더 ---------- */
 function render(){
   if (!authed) { app().innerHTML = renderLogin(); return }
-  if (view==='detail' && selClient()) app().innerHTML = renderDetail()
+  if (view==='add') app().innerHTML = renderAdd()
+  else if (view==='detail' && selClient()) app().innerHTML = renderDetail()
   else if (view==='form' && selClient()) app().innerHTML = renderForm()
   else { view='list'; app().innerHTML = renderList() }
 }
@@ -237,6 +269,7 @@ function renderList(){
     .filter(c=>!cityFilter || c.location===cityFilter)
     .filter(c=>!tradeFilter || c.profile.trade_type===tradeFilter)
     .filter(c=>!prrsFilter || c.profile.prrs===prrsFilter)
+    .filter(c=>!typeFilter || (c.customer_type||'').includes(typeFilter))
   const usedCities = [...new Set(clients.map(c=>c.location).filter(Boolean))]
 
   return `
@@ -257,11 +290,20 @@ function renderList(){
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-size:14px;font-weight:700">거래처 프로필 <span style="font-weight:400;font-size:12px;color:#888">(${filtered.length}곳)</span></div>
-      <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="loadAll()">🔄 새로고침</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="loadAll()">🔄</button>
+        <button class="btn btn-green" style="padding:6px 14px;font-size:12px" onclick="openAdd()">+ 거래처 추가</button>
+      </div>
     </div>
 
     ${clients.length>0 ? `
     <div class="filter-box">
+      <div class="filter-row">
+        <span class="filter-label">업종</span>
+        <button class="pill ${!typeFilter?'on':''}" onclick="setF('type','')">전체</button>
+        <button class="pill ${typeFilter==='양돈장'?'on':''}" onclick="setF('type','양돈장')">양돈장</button>
+        <button class="pill" style="${typeFilter==='대리점'?'background:#633806;color:#fff':''}" onclick="setF('type','대리점')">대리점</button>
+      </div>
       <div class="filter-row">
         <span class="filter-label">거래</span>
         <button class="pill ${!tradeFilter?'on':''}" onclick="setF('trade','')">전체</button>
@@ -287,12 +329,19 @@ function renderList(){
       const p = c.profile
       const scale = p.scale || c.m_total || 0
       const sow = p.sow_count || c.m_sow || 0
+      const ct = c.customer_type||''
+      const typeTag = ct.includes('대리점')?'대리점':ct.includes('양돈장')?'양돈장':''
+      const statusTag = ct.includes('기존')?'기존':ct.includes('신규')?'신규':''
+      const ts = c.trade_status||''
       return `
       <div class="farm-card" onclick="openDetail('${esc(c.farm_name).replace(/'/g,"\\'")}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
             <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px">
               <span style="font-weight:700;font-size:15px">${esc(c.farm_name)}</span>
+              ${typeTag?`<span class="tag ${typeTag==='대리점'?'tag-amber':'tag-gray'}" style="${typeTag==='대리점'?'':'background:#F5F6F4;color:#1a4a2e'}">${typeTag}</span>`:''}
+              ${statusTag?`<span class="tag ${statusTag==='기존'?'tag-green':'tag-blue'}">${statusTag}</span>`:''}
+              ${ts?`<span class="tag ${ts.includes('거래 중')?'tag-green':ts.includes('과거')?'tag-amber':'tag-gray'}">${esc(ts)}</span>`:''}
               ${p.trade_type?`<span class="tag ${p.trade_type==='여신'?'tag-green':'tag-blue'}">${p.trade_type}</span>`:''}
               ${c.location?`<span class="tag tag-gray">${esc(c.location)}</span>`:''}
               ${p.ship_type?`<span class="tag ${shipTag(p.ship_type)}">${esc(p.ship_type)}</span>`:''}
@@ -314,6 +363,119 @@ function renderList(){
         </div>
       </div>`
     }).join('')}
+
+    ${renderSummary(filtered)}
+  </div>`
+}
+
+/* ----- 거래처 직접 추가 ----- */
+function openAdd(){ view='add'; render(); window.scrollTo(0,0) }
+
+function renderAdd(){
+  return `
+  <div class="page">
+    <button class="btn btn-outline" onclick="goList()" style="margin-bottom:12px">← 목록으로</button>
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">거래처 추가</div>
+      <div style="font-size:11px;color:#888;margin-bottom:16px">미팅 기록 없이 거래처를 바로 등록합니다. 등록 후 상세에서 프로필을 채워주세요.</div>
+
+      <div style="margin-bottom:8px"><div class="form-label">농장명 / 업체명 *</div><input id="aName" placeholder="예) 선경농장"></div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">대표자</div><input id="aOwner" placeholder="예) 염철근"></div>
+        <div><div class="form-label">지역</div>
+          <select id="aCity"><option value="">선택</option>${CITIES.map(x=>`<option>${x}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">업종</div>
+          <select id="aType"><option value="">선택</option><option>양돈장</option><option>대리점</option></select>
+        </div>
+        <div><div class="form-label">구분</div>
+          <select id="aStatus"><option value="">선택</option><option>기존</option><option>신규</option></select>
+        </div>
+      </div>
+      <div style="margin-bottom:20px"><div class="form-label">거래 상태</div>
+        <select id="aTrade"><option value="">선택</option><option>거래 중</option><option>과거 거래</option><option>미거래</option></select>
+      </div>
+
+      <button class="btn btn-green" id="addBtn" style="width:100%;padding:12px" onclick="saveNewClient()">등록하기</button>
+    </div>
+  </div>`
+}
+
+async function saveNewClient(){
+  const name = document.getElementById('aName').value.trim()
+  if (!name) { alert('농장명을 입력해주세요.'); return }
+  if (clients.some(c=>c.farm_name===name)) {
+    alert('이미 같은 이름의 거래처가 있습니다. 목록에서 확인해주세요.'); return
+  }
+  const status = document.getElementById('aStatus').value
+  const type = document.getElementById('aType').value
+  const customer_type = [status, type].filter(Boolean).join('·')
+
+  const btn = document.getElementById('addBtn')
+  btn.disabled = true; btn.textContent = '등록 중...'
+  const { error } = await sb.from('client_profiles').upsert({
+    farm_name: name,
+    owner_name: document.getElementById('aOwner').value.trim(),
+    location: document.getElementById('aCity').value,
+    customer_type,
+    trade_status: document.getElementById('aTrade').value,
+    updated_at: new Date().toISOString(),
+  }, { onConflict:'farm_name' })
+  btn.disabled = false; btn.textContent = '등록하기'
+  if (error) {
+    alert('등록 실패: '+error.message+
+      (error.message.includes('column')?'\n\n※ client_profiles에 owner_name 등 컬럼 추가 SQL을 먼저 실행해주세요.':''))
+    return
+  }
+  await loadAll()
+  openDetail(name)
+}
+
+async function delClient(name){
+  if (!confirm(`${name} 거래처를 삭제할까요?\n프로필과 방문기록이 함께 삭제됩니다.`)) return
+  await sb.from('client_visits').delete().eq('farm_name',name)
+  const { error } = await sb.from('client_profiles').delete().eq('farm_name',name)
+  if (error) { alert('삭제 실패: '+error.message); return }
+  selName = null
+  await loadAll()
+  goList()
+}
+
+/* ----- 물량 현황 요약 (대리점 제외) ----- */
+function renderSummary(filtered){
+  if (loading || clients.length===0) return ''
+  const farmsOnly = filtered.filter(c=>!(c.customer_type||'').includes('대리점'))
+  const dealerCnt = filtered.length - farmsOnly.length
+  const headOf = c => c.profile.scale || c.m_total || 0
+  const totalHead = farmsOnly.reduce((a,c)=>a+headOf(c),0)
+  const trading = farmsOnly.filter(c=>(c.trade_status||'').includes('거래 중'))
+  const tradingHead = trading.reduce((a,c)=>a+headOf(c),0)
+  if (totalHead===0) return ''
+  const ms = ((tradingHead/totalHead)*100).toFixed(1)
+  const msColor = ms>=50?'#085041':ms>=30?'#633806':'#A32D2D'
+  const msBg    = ms>=50?'#E1F5EE':ms>=30?'#FAEEDA':'#FCEBEB'
+  return `
+  <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-top:12px;border:0.5px solid rgba(0,0,0,0.08)">
+    <div style="font-size:11px;color:#888;margin-bottom:10px">
+      📊 ${cityFilter||'전체'} 물량 현황
+      <span style="margin-left:6px;font-size:10px;color:#bbb">(농장 ${farmsOnly.length}곳 기준${dealerCnt>0?` · 대리점 ${dealerCnt}곳 제외`:''})</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div style="background:#F5F6F4;border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:#888;margin-bottom:3px">전체 규모</div>
+        <div style="font-size:16px;font-weight:700;color:#1a1a18">${fmt(totalHead)}<span style="font-size:10px;color:#888;margin-left:2px">두</span></div>
+      </div>
+      <div style="background:#E1F5EE;border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:#085041;margin-bottom:3px">당사 거래 (${trading.length}곳)</div>
+        <div style="font-size:16px;font-weight:700;color:#085041">${fmt(tradingHead)}<span style="font-size:10px;margin-left:2px">두</span></div>
+      </div>
+      <div style="background:${msBg};border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:#888;margin-bottom:3px">MS</div>
+        <div style="font-size:16px;font-weight:700;color:${msColor}">${ms}<span style="font-size:10px;margin-left:2px">%</span></div>
+      </div>
+    </div>
   </div>`
 }
 
@@ -336,15 +498,20 @@ function renderDetail(){
         <div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span style="font-size:18px;font-weight:700">${esc(c.farm_name)}</span>
+            ${(c.customer_type||'').includes('대리점')?'<span class="tag tag-amber">대리점</span>':(c.customer_type||'').includes('양돈장')?'<span class="tag tag-gray" style="color:#1a4a2e">양돈장</span>':''}
+            ${(c.trade_status||'')?`<span class="tag ${(c.trade_status||'').includes('거래 중')?'tag-green':(c.trade_status||'').includes('과거')?'tag-amber':'tag-gray'}">${esc(c.trade_status)}</span>`:''}
             ${p.trade_type?`<span class="tag ${p.trade_type==='여신'?'tag-green':'tag-blue'}">${p.trade_type}</span>`:''}
             ${c.location?`<span class="tag tag-gray">${esc(c.location)}</span>`:''}
             ${p.prrs?`<span class="tag ${prrsTag(p.prrs)}">PRRS ${p.prrs}</span>`:''}
           </div>
           <div style="font-size:12px;color:#888;margin-top:3px">
-            ${p.biz_no?'사업자번호 '+esc(p.biz_no):'사업자번호 미입력'} · 미팅 ${c.meeting_count}건${c.last_meeting?' · 최근 '+esc(c.last_meeting):''}
+            ${p.biz_no?'사업자번호 '+esc(p.biz_no):'사업자번호 미입력'}${c.meeting_count>0?' · 미팅 '+c.meeting_count+'건':' · 직접 등록'}${c.last_meeting?' · 최근 '+esc(c.last_meeting):''}
           </div>
         </div>
-        <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="openForm()">✏️ 프로필 수정</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="openForm()">✏️ 프로필 수정</button>
+          ${c.meeting_count===0?`<button class="btn btn-red" style="padding:6px 12px;font-size:12px" onclick="delClient('${esc(c.farm_name).replace(/'/g,"\\'")}')">🗑️</button>`:''}
+        </div>
       </div>
 
       <div class="sec-title">👤 기본 정보 <span class="sec-note">대표자·지역은 영업관리 미팅에서 자동</span></div>
@@ -546,6 +713,7 @@ function setF(kind, val){
   if (kind==='city') cityFilter = (cityFilter===val)?'':val
   if (kind==='trade') tradeFilter = (tradeFilter===val)?'':val
   if (kind==='prrs') prrsFilter = (prrsFilter===val)?'':val
+  if (kind==='type') typeFilter = (typeFilter===val)?'':val
   render()
 }
 function goList(){ view='list'; render() }
