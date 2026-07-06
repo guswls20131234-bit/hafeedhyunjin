@@ -120,7 +120,16 @@ let loading = true
 let loadError = null
 let cityFilter = '', tradeFilter = '', prrsFilter = '', typeFilter = ''
 
-const CITIES = ['창원','김해','진주','밀양','함안','창녕','고성','사천','거제','통영','의령','하동','산청','함양','거창','합천','양산']
+const CITIES = ['창원시','진주시','통영시','사천시','김해시','밀양시','거제시','양산시','의령군','함안군','창녕군','고성군','남해군','하동군','산청군','함양군','거창군','합천군']
+
+// "하동" → "하동군" 처럼 접미사 없이 저장된 값을 정식 명칭으로 통일
+function normalizeCity(v){
+  v = (v||'').trim()
+  if (!v) return ''
+  if (CITIES.includes(v)) return v
+  const hit = CITIES.find(x => x.startsWith(v) || v.startsWith(x))
+  return hit || v
+}
 
 const EMPTY_PROFILE = {
   owner_name:'', location:'', customer_type:'', trade_status:'',
@@ -168,7 +177,7 @@ async function loadAll(){
         byName.set(name, {
           farm_name:name,
           owner_name:m.owner_name||'',
-          location:m.location||'',
+          location:normalizeCity(m.location),
           m_sow:Number(m.sow_count)||0,
           m_total:Number(m.total_head)||0,
           customer_type:m.customer_type||'',   // 예) "기존·양돈장", "신규·대리점"
@@ -181,7 +190,7 @@ async function loadAll(){
         const c = byName.get(name)
         c.meeting_count++
         if(!c.owner_name && m.owner_name) c.owner_name = m.owner_name
-        if(!c.location && m.location) c.location = m.location
+        if(!c.location && m.location) c.location = normalizeCity(m.location)
         if(!c.m_sow && Number(m.sow_count)) c.m_sow = Number(m.sow_count)
         if(!c.m_total && Number(m.total_head)) c.m_total = Number(m.total_head)
         if(!c.customer_type && m.customer_type) c.customer_type = m.customer_type
@@ -197,7 +206,7 @@ async function loadAll(){
         byName.set(name, {
           farm_name:name,
           owner_name:pr.owner_name||'',
-          location:pr.location||'',
+          location:normalizeCity(pr.location),
           m_sow:0, m_total:0,
           customer_type:pr.customer_type||'',
           trade_status:pr.trade_status||'',
@@ -208,7 +217,7 @@ async function loadAll(){
         const c = byName.get(name)
         // 프로필에서 직접 수정한 값이 미팅 값보다 우선
         if(pr.owner_name) c.owner_name = pr.owner_name
-        if(pr.location) c.location = pr.location
+        if(pr.location) c.location = normalizeCity(pr.location)
         if(pr.customer_type) c.customer_type = pr.customer_type
         if(pr.trade_status) c.trade_status = pr.trade_status
       }
@@ -272,6 +281,10 @@ function renderList(){
     .filter(c=>!prrsFilter || c.profile.prrs===prrsFilter)
     .filter(c=>!typeFilter || (c.customer_type||'').includes(typeFilter))
   const usedCities = [...new Set(clients.map(c=>c.location).filter(Boolean))]
+    .sort((a,b)=>{
+      const ia=CITIES.indexOf(a), ib=CITIES.indexOf(b)
+      return (ia<0?99:ia)-(ib<0?99:ib)
+    })
 
   return `
   <div class="page">
@@ -633,7 +646,7 @@ function renderForm(){
         const curType = ct.includes('양돈장')?'양돈장':ct.includes('대리점')?'대리점':''
         const curTs = p.trade_status || c.trade_status || ''
         const curOwner = p.owner_name || c.owner_name || ''
-        const curCity = p.location || c.location || ''
+        const curCity = normalizeCity(p.location || c.location || '')
         return `
       <div class="form-row" style="margin-bottom:8px">
         <div><div class="form-label">대표자</div><input id="fOwner" value="${esc(curOwner)}"></div>
