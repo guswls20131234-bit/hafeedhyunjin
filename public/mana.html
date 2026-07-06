@@ -133,7 +133,7 @@ function normalizeCity(v){
 
 const EMPTY_PROFILE = {
   owner_name:'', location:'', customer_type:'', trade_status:'',
-  farmer_name:'', biz_no:'', scale:0, sow_count:0,
+  farmer_name:'', biz_no:'', address:'', phone:'', scale:0, sow_count:0,
   feed_jadon:'', feed_rest:'', feed_amount:0,
   ship_type:'', ship_to:'', ship_monthly:0, ship_memo:'',
   med_supplier:'', gilt_source:'', gilt_breed:'',
@@ -362,7 +362,7 @@ function renderList(){
               ${p.prrs?`<span class="tag ${prrsTag(p.prrs)}">PRRS ${p.prrs}</span>`:''}
             </div>
             <div style="font-size:11px;color:#888">
-              대표 ${esc(c.owner_name)||'—'}${p.farmer_name&&p.farmer_name!==c.owner_name?' · 농장주 '+esc(p.farmer_name):''}${p.biz_no?' · '+esc(p.biz_no):''}
+              대표 ${esc(c.owner_name)||'—'}${p.farmer_name&&p.farmer_name!==c.owner_name?' · 농장주 '+esc(p.farmer_name):''}${p.phone?` · <a href="tel:${esc(p.phone).replace(/[^0-9+]/g,'')}" onclick="event.stopPropagation()" style="color:#0C447C;text-decoration:none">📞 ${esc(p.phone)}</a>`:''}${p.biz_no?' · '+esc(p.biz_no):''}
             </div>
           </div>
           ${c.last_meeting?`<div style="font-size:10px;color:#aaa;text-align:right;white-space:nowrap">최근 미팅<br><b style="color:#085041;font-size:11px">${esc(c.last_meeting)}</b></div>`:''}
@@ -396,9 +396,13 @@ function renderAdd(){
       <div style="margin-bottom:8px"><div class="form-label">농장명 / 업체명 *</div><input id="aName" placeholder="예) 선경농장"></div>
       <div class="form-row" style="margin-bottom:8px">
         <div><div class="form-label">대표자</div><input id="aOwner" placeholder="예) 염철근"></div>
+        <div><div class="form-label">연락처</div><input id="aPhone" type="tel" placeholder="010-0000-0000"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:8px">
         <div><div class="form-label">지역</div>
           <select id="aCity"><option value="">선택</option>${CITIES.map(x=>`<option>${x}</option>`).join('')}</select>
         </div>
+        <div></div>
       </div>
       <div class="form-row" style="margin-bottom:8px">
         <div><div class="form-label">업종</div>
@@ -432,6 +436,7 @@ async function saveNewClient(){
   const { error } = await sb.from('client_profiles').upsert({
     farm_name: name,
     owner_name: document.getElementById('aOwner').value.trim(),
+    phone: document.getElementById('aPhone').value.trim(),
     location: document.getElementById('aCity').value,
     customer_type,
     trade_status: document.getElementById('aTrade').value,
@@ -538,6 +543,10 @@ function renderDetail(){
       <div class="info-grid" style="margin-bottom:16px">
         <div class="info-item"><div class="info-label">대표자</div><div class="info-val">${esc(c.owner_name)||'—'}</div></div>
         <div class="info-item"><div class="info-label">농장주</div><div class="info-val">${esc(p.farmer_name)||esc(c.owner_name)||'—'}</div></div>
+        <div class="info-item"><div class="info-label">연락처</div>
+          <div class="info-val" style="font-size:13px">${p.phone?`<a href="tel:${esc(p.phone).replace(/[^0-9+]/g,'')}" style="color:#0C447C;text-decoration:none">📞 ${esc(p.phone)}</a>`:'—'}</div></div>
+        <div class="info-item"><div class="info-label">사업자번호</div><div class="info-val" style="font-size:13px">${esc(p.biz_no)||'—'}</div></div>
+        <div class="info-item" style="grid-column:1/-1"><div class="info-label">주소</div><div class="info-val" style="font-size:13px">${esc(p.address)||'—'}</div></div>
       </div>
 
       <div class="sec-title">🐷 사육 · 사료</div>
@@ -666,10 +675,14 @@ function renderForm(){
         </div>
       </div>`
       })()}
-      <div class="form-row" style="margin-bottom:16px">
+      <div class="form-row" style="margin-bottom:8px">
         <div><div class="form-label">농장주</div><input id="fFarmer" value="${esc(p.farmer_name)}" placeholder="대표자와 같으면 비워두세요"></div>
         <div><div class="form-label">사업자번호</div><input id="fBiz" value="${esc(p.biz_no)}" placeholder="000-00-00000"></div>
       </div>
+      <div class="form-row" style="margin-bottom:8px">
+        <div><div class="form-label">연락처</div><input id="fPhone" type="tel" value="${esc(p.phone)}" placeholder="010-0000-0000"></div>
+      </div>
+      <div style="margin-bottom:16px"><div class="form-label">주소</div><input id="fAddress" value="${esc(p.address)}" placeholder="예) 경남 함안군 OO면 OO로 123"></div>
 
       <div class="sec-title">🐷 사육 · 사료</div>
       <div class="form-row" style="margin-bottom:8px">
@@ -788,6 +801,8 @@ async function saveProfile(){
     customer_type: [document.getElementById('fStatus').value, document.getElementById('fType').value].filter(Boolean).join('·'),
     trade_status: document.getElementById('fTradeStatus').value,
     farmer_name: document.getElementById('fFarmer').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
+    address: document.getElementById('fAddress').value.trim(),
     biz_no: document.getElementById('fBiz').value.trim(),
     scale: Number(document.getElementById('fScale').value)||0,
     sow_count: Number(document.getElementById('fSow').value)||0,
