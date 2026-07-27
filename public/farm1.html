@@ -617,6 +617,15 @@ function gradeOf(cw,bf){
   if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))return'one';
   return'out';
 }
+function normGrade(v){let t=String(v==null?'':v).trim();
+  if(t==='')return null;
+  if(t.includes('+')||t.includes('1+')||t.includes('1⁺'))return '1+';
+  const s=t.replace(/등급|등/g,'').trim();
+  if(s==='1')return '1';
+  if(s==='2')return '2';
+  if(t.includes('외')||t.toUpperCase().includes('E')||t.includes('D'))return '등외';
+  return '등외';
+}
 function scatterSVG(pts){
   const W=680,H=440,pL=46,pB=40,pT=14,pR=16, x0=60,x1=120,y0=8,y1=32;
   const sx=v=>pL+(Math.max(x0,Math.min(x1,v))-x0)/(x1-x0)*(W-pL-pR);
@@ -657,7 +666,8 @@ function parseSettlement(aoa){
         else if(t.includes('도체중')&&!t.includes('감량'))col.cw=idx;
         else if(t.includes('등지방')&&!t.includes('감량'))col.bf=idx;
         else if(t.includes('생돈대'))col.price=idx;
-        else if(t.includes('도체번호')||t.includes('개체번호'))col.pid=idx;});
+        else if(t.includes('도체번호')||t.includes('개체번호'))col.pid=idx;
+        else if(t.includes('등급'))col.grade=idx;});
       break;}
   }
   if(hr<0||col.cw==null||col.bf==null)return{date:null,pigs:[]};
@@ -672,7 +682,8 @@ function parseSettlement(aoa){
     if(isNaN(cw)||cw<=0)continue;
     if(col.sex!=null&&!sexes.includes(sex))continue;
     pigs.push({sex,lw:parseFloat(txt(row[col.lw]).replace(/,/g,''))||0,cw,bf:isNaN(bf)?0:bf,
-      price:parseFloat(txt(row[col.price]).replace(/,/g,''))||0,pig_id:col.pid!=null?txt(row[col.pid]).trim():''});
+      price:parseFloat(txt(row[col.price]).replace(/,/g,''))||0,pig_id:col.pid!=null?txt(row[col.pid]).trim():'',
+      grade:col.grade!=null?normGrade(txt(row[col.grade])):null});
   }
   return{date,pigs};
 }
@@ -712,6 +723,26 @@ function renderScatter(pigs, isLegacy){
       : `<div class="empty"><div class="big">📈</div>이 출하 건의 도체 데이터가 없습니다.<br>아래 <b>정산서 업로드</b>로 엑셀을 올리면 산점도가 생성됩니다.</div>`; return; }
   const st=pigStats(reg);
   const k=(l,v,u)=>`<div class="kpi"><div class="k">${l}</div><div class="v">${v} <small>${u||''}</small></div></div>`;
+  // 성별 통계
+  const N=pigs.length;
+  const grp=arr=>{const cwv=arr.filter(p=>num(p.cw)>0),bfv=arr.filter(p=>num(p.bf)>0),lwv=arr.filter(p=>num(p.lw)>0);
+    return {n:arr.length,
+      cw:cwv.length?cwv.reduce((a,p)=>a+num(p.cw),0)/cwv.length:0,
+      bf:bfv.length?bfv.reduce((a,p)=>a+num(p.bf),0)/bfv.length:0,
+      lw:lwv.length?lwv.reduce((a,p)=>a+num(p.lw),0)/lwv.length:0};};
+  const anyLw=pigs.some(p=>num(p.lw)>0);
+  const sexDefs=[['암','암'],['수','수'],['거세','거세']];
+  const sexRows=sexDefs.map(([lab,key])=>{const g=grp(pigs.filter(p=>p.sex===key));
+    return `<tr><td class="mcol">${lab}</td><td>${fmt(g.n)}</td><td>${N?fmt1(g.n/N*100):'-'}</td>${anyLw?`<td>${g.lw?fmt1(g.lw):'-'}</td>`:''}<td>${g.cw?fmt1(g.cw):'-'}</td><td>${g.bf?fmt1(g.bf):'-'}</td></tr>`;}).join('');
+  const gAll=grp(pigs);
+  const sexTot=`<tr class="tot"><td class="mcol">전체</td><td>${fmt(N)}</td><td>100.0</td>${anyLw?`<td>${gAll.lw?fmt1(gAll.lw):'-'}</td>`:''}<td>${gAll.cw?fmt1(gAll.cw):'-'}</td><td>${gAll.bf?fmt1(gAll.bf):'-'}</td></tr>`;
+  // 등급 통계 (파일 등급 우선, 없으면 도체중·등지방으로 추정)
+  const hasGrade=pigs.some(p=>p.grade);
+  const gc={'1+':0,'1':0,'2':0,'등외':0};
+  if(hasGrade){ pigs.forEach(p=>{const g=p.grade&&gc.hasOwnProperty(p.grade)?p.grade:(p.grade?'등외':null); if(g)gc[g]++;}); }
+  else { pigs.forEach(p=>{const z=gradeOf(num(p.cw),num(p.bf)); gc[z==='plus'?'1+':z==='one'?'1':'등외']++;}); }
+  const plusPctOff = hasGrade&&N ? gc['1+']/N*100 : st.plusPct;
+  const gradeRows=['1+','1','2','등외'].map(g=>`<tr><td class="mcol">${g}${g==='등외'?'':'등급'}</td><td>${fmt(gc[g])}</td><td>${N?fmt1(gc[g]/N*100):'-'}</td></tr>`).join('');
   const legacyBanner = isLegacy
     ? `<div style="background:#fbf4e6;border:1px solid #e7d8b0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7a5d1b;line-height:1.5">
          이 도체 데이터는 아직 이 출하 줄에 연결되지 않은 <b>기존(날짜기반) 데이터</b>입니다. 같은 날짜에 출하 건이 여러 개라면 연결 전에 확인하세요.
@@ -720,15 +751,29 @@ function renderScatter(pigs, isLegacy){
   body.innerHTML= legacyBanner + `
     <div class="kpis" style="margin-bottom:14px">
       ${k('출하두수',fmt(st.n),'두')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
-      ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급+ 비율',fmt1(st.plusPct),'%')}</div>
+      ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급+ 비율',fmt1(plusPctOff),'%')}</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <div class="card" style="box-shadow:none">
+        <div class="hd" style="padding:10px 14px"><h2 style="font-size:13px">성별 성적</h2></div>
+        <div class="tablewrap" style="max-height:none"><table>
+          <thead><tr><th>구분</th><th>두수</th><th>출현율</th>${anyLw?'<th>평균생체중</th>':''}<th>평균도체중</th><th>평균등지방</th></tr></thead>
+          <tbody>${sexRows}${sexTot}</tbody></table></div></div>
+      <div class="card" style="box-shadow:none">
+        <div class="hd" style="padding:10px 14px"><h2 style="font-size:13px">등급 성적</h2>${!hasGrade?'<span class="sub">추정(파일 등급 없음)</span>':''}</div>
+        <div class="tablewrap" style="max-height:none"><table>
+          <thead><tr><th>등급</th><th>두수</th><th>출현율</th></tr></thead>
+          <tbody>${gradeRows}<tr class="tot"><td class="mcol">합계</td><td>${fmt(N)}</td><td>100.0</td></tr></tbody></table></div></div>
+    </div>
+
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:8px">
-      <span>암 <b style="color:var(--ink)">${st.female}두</b></span><span>거세 <b style="color:var(--ink)">${st.cast}두</b></span>
-      <span>생돈대 합계 <b style="color:var(--brand-d)">${fmt(st.price)}원</b></span></div>
+      <span>생돈대 합계 <b style="color:var(--brand-d)">${fmt(st.price)}원</b></span>${!anyLw?'<span>· 생체중 정보 없음 → 지육율·평균생체중 미표시</span>':''}</div>
     ${scatterSVG(reg)}
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E24B4A"></span> 1등급+</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#378ADD"></span> 1등급</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9aa39a"></span> 등외</span></div>`;
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E24B4A"></span> 1등급+존</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#378ADD"></span> 1등급존</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9aa39a"></span> 등외존</span>
+      <span style="color:var(--muted)">※ 그래프 색은 도체중·등지방 좌표 기준, 등급표는 정산서 실제 등급 기준</span></div>`;
   if(isLegacy){const lb=document.getElementById('scLink'); if(lb)lb.onclick=async()=>{
     await sb.from(T.pigs).update({shipment_id:scShipId}).eq('farm_id',state.farmId).eq('ship_date',scDate).is('shipment_id',null);
     toast('이 출하 줄에 연결되었습니다'); openRowScatter(scShipId,scDate);};}
@@ -737,7 +782,7 @@ async function saveScatter(pigs){
   await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('shipment_id',scShipId);
   await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate).is('shipment_id',null);
   const rows=pigs.map(p=>({farm_id:state.farmId,ship_date:scDate,shipment_id:scShipId,pig_id:p.pig_id||null,sex:p.sex||null,
-    lw:p.lw||0,cw:p.cw||0,bf:p.bf||0,price:p.price||0}));
+    lw:p.lw||0,cw:p.cw||0,bf:p.bf||0,price:p.price||0,grade:p.grade||null}));
   const {error}=await sb.from(T.pigs).insert(rows);
   if(error){toast('저장 실패: '+error.message,true);return false;}
   return true;
