@@ -667,12 +667,12 @@ function parseSettlement(aoa){
         else if(t.includes('등지방')&&!t.includes('감량'))col.bf=idx;
         else if(t.includes('생돈대'))col.price=idx;
         else if(t.includes('도체번호')||t.includes('개체번호'))col.pid=idx;
-        else if(t.includes('등급'))col.grade=idx;});
+        else if(t.includes('등급')){ if(t.includes('최종')||col.grade==null) col.grade=idx; }});
       break;}
   }
   if(hr<0||col.cw==null||col.bf==null)return{date:null,pigs:[]};
   let date=null;
-  for(let i=0;i<hr&&!date;i++)for(const c of (aoa[i]||[])){
+  for(let i=0;i<Math.min(aoa.length,hr+6)&&!date;i++)for(const c of (aoa[i]||[])){
     if(c instanceof Date){date=isoDate(c);break;}
     const m=txt(c).match(/(\d{4})-(\d{2})-(\d{2})/); if(m){date=m[0];break;}}
   const sexes=['암','거세','수'], pigs=[];
