@@ -435,7 +435,10 @@ async function viewFeed(){
     <div class="tablewrap"><table id="grid"><thead>${head}</thead>
       <tbody>${body}${aggRow('합계','tot')}${aggRow('평균','avg')}${aggRow('%','pct')}</tbody></table></div>
     <div class="gridfoot"><span class="hint">흰 칸 입력 또는 거래원장 업로드 → 소계·합계·%는 자동 계산</span>
-      <button class="btn primary" id="saveGrid">${state.year}년 저장</button></div></div>
+      <span style="display:flex;gap:6px;align-items:center">
+        <select id="feedDelM" style="padding:6px 9px">${MONTHS.map(m=>`<option value="${m}">${m}월</option>`).join('')}</select>
+        <button class="btn" id="feedDelBtn" style="color:var(--danger)">이 달 데이터 삭제</button>
+        <button class="btn primary" id="saveGrid">${state.year}년 저장</button></span></div></div>
     <div id="feedCost"></div><div id="feedSummary"></div>`;
   const recompute=()=>{
     const sumK={},cntK={}; inCols.forEach(c=>{sumK[c.k]=0;cntK[c.k]=0;});
@@ -463,12 +466,20 @@ async function viewFeed(){
   document.getElementById('upLedger').onclick=()=>document.getElementById('ledgerFile').click();
   document.getElementById('ledgerFile').onchange=async e=>{const f=e.target.files[0]; e.target.value=''; if(!f)return;
     try{await ensureXLSX();}catch(_){toast('엑셀 모듈 로드 실패(네트워크 확인)',true);return;} parseLedger(f);};
+  document.getElementById('feedDelBtn').onclick=async()=>{
+    const dm=+document.getElementById('feedDelM').value;
+    if(!confirm(`${state.year}년 ${dm}월 사료 데이터를 삭제할까요?\n(kg·금액 전체가 지워집니다. 되돌릴 수 없어요)`))return;
+    const {error}=await sb.from(T.feed).delete().eq('farm_id',state.farmId).eq('ym',ym(dm));
+    if(error){toast('삭제 실패: '+error.message,true);return;}
+    toast(`${dm}월 사료 데이터 삭제됨`); viewFeed();
+  };
   document.getElementById('saveGrid').onclick=async()=>{
     const bm={}; document.querySelectorAll('#grid .cell').forEach(i=>{(bm[i.dataset.m]=bm[i.dataset.m]||{})[i.dataset.k]=num(i.value);});
-    const ups=[]; Object.entries(bm).forEach(([m,o])=>{ if(Object.values(o).some(x=>x!==0)) ups.push({...o,farm_id:state.farmId,ym:ym(+m)}); });
-    if(!ups.length){toast('입력된 값이 없습니다');return;}
-    const {error}=await sb.from(T.feed).upsert(ups,{onConflict:'farm_id,ym'});
-    if(error){toast('저장 실패: '+error.message,true);return;} toast(`${ups.length}개월 저장되었습니다`);
+    const ups=[], dels=[]; Object.entries(bm).forEach(([m,o])=>{ if(Object.values(o).some(x=>x!==0)) ups.push({...o,farm_id:state.farmId,ym:ym(+m)}); else if(byM[+m]) dels.push(ym(+m)); });
+    for(const d of dels){ await sb.from(T.feed).delete().eq('farm_id',state.farmId).eq('ym',d); }
+    if(ups.length){const {error}=await sb.from(T.feed).upsert(ups,{onConflict:'farm_id,ym'}); if(error){toast('저장 실패: '+error.message,true);return;}}
+    if(!ups.length&&!dels.length){toast('입력된 값이 없습니다');return;}
+    toast(`저장 완료${dels.length?` · ${dels.length}개월 비움`:''}`); if(dels.length)viewFeed();
   };
 }
 
@@ -577,10 +588,14 @@ function openMapModal(){
   const saved=loadFeedMap();
   const opts=`<option value="">— 제외 —</option>`+FEED_ALL.map(([b,l])=>`<option value="${b}">${l}</option>`).join('');
   document.getElementById('mapBody').innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:flex-end">
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-end">
       <div class="field"><label>연</label><input class="inp" id="mapY" value="${feedLedger.year}" style="width:90px"></div>
       <div class="field"><label>월</label><input class="inp" id="mapM" value="${feedLedger.month}" style="width:70px"></div>
-      <span class="hint">제품 ${feedLedger.items.length}개 · 같은 칸끼리 자동 합산 · 매핑은 다음에도 기억됩니다</span></div>`+
+      <span class="hint">제품 ${feedLedger.items.length}개 · 같은 칸끼리 자동 합산 · 매핑은 다음에도 기억됩니다</span></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;padding:8px 10px;background:#fafbfa;border:1px solid var(--line);border-radius:9px">
+      <span class="hint">그 달에 이미 값이 있으면:</span>
+      <label style="display:flex;gap:4px;align-items:center;font-size:13px;font-weight:600"><input type="radio" name="mapMode" value="replace" checked> 덮어쓰기(교체)</label>
+      <label style="display:flex;gap:4px;align-items:center;font-size:13px;font-weight:600"><input type="radio" name="mapMode" value="add"> 합산(더하기)</label></div>`+
     feedLedger.items.map((p,i)=>{const g=saved[p.name]!=null?saved[p.name]:guessFeed(p.name);
       return `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
         <div style="flex:1"><div style="font-weight:600;font-size:13px">${p.name}</div>
@@ -600,13 +615,15 @@ document.getElementById('applyMap').onclick=async()=>{
   saveFeedMap(map);
   if(!Object.keys(agg).length){toast('매핑된 품목이 없습니다',true);return;}
   const tym=`${y}-${String(mo).padStart(2,'0')}`;
+  const modeEl=document.querySelector('input[name="mapMode"]:checked'); const mode=modeEl?modeEl.value:'replace';
   const {data:ex}=await sb.from(T.feed).select('*').eq('farm_id',state.farmId).eq('ym',tym).maybeSingle();
   const merged={...(ex||{})}; delete merged.id; delete merged.created_at;
-  FEED_ALL.forEach(([b])=>['_kg','_won'].forEach(suf=>{const k=b+suf; if(agg[k]!=null)merged[k]=num(merged[k])+agg[k];}));
+  FEED_ALL.forEach(([b])=>['_kg','_won'].forEach(suf=>{const k=b+suf;
+    if(agg[k]!=null) merged[k]= mode==='add' ? num(merged[k])+agg[k] : agg[k];}));
   merged.farm_id=state.farmId; merged.ym=tym;
   const {error}=await sb.from(T.feed).upsert(merged,{onConflict:'farm_id,ym'});
   if(error){toast('저장 실패: '+error.message,true);return;}
-  closeModal('mapModal'); feedLedger=null; toast(`${y}년 ${mo}월 사료 입력 완료`);
+  closeModal('mapModal'); feedLedger=null; toast(`${y}년 ${mo}월 사료 ${mode==='add'?'합산':'덮어쓰기'} 완료`);
   state.year=y; const ys=document.getElementById('yearSel'); if([...ys.options].some(o=>+o.value===y))ys.value=y; viewFeed();
 };
 
