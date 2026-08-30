@@ -758,7 +758,7 @@ function renderScatter(pigs, isLegacy){
   const gc={'1+':0,'1':0,'2':0,'등외':0};
   if(hasGrade){ pigs.forEach(p=>{const g=p.grade&&gc.hasOwnProperty(p.grade)?p.grade:(p.grade?'등외':null); if(g)gc[g]++;}); }
   else { pigs.forEach(p=>{const z=gradeOf(num(p.cw),num(p.bf)); gc[z==='plus'?'1+':z==='one'?'1':'등외']++;}); }
-  const plusPctOff = hasGrade&&N ? gc['1+']/N*100 : st.plusPct;
+  const oneUpPct = N ? (gc['1+']+gc['1'])/N*100 : 0;
   const gradeRows=['1+','1','2','등외'].map(g=>`<tr><td class="mcol">${g}${g==='등외'?'':'등급'}</td><td>${fmt(gc[g])}</td><td>${N?fmt1(gc[g]/N*100):'-'}</td></tr>`).join('');
   const legacyBanner = isLegacy
     ? `<div style="background:#fbf4e6;border:1px solid #e7d8b0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7a5d1b;line-height:1.5">
@@ -768,7 +768,7 @@ function renderScatter(pigs, isLegacy){
   body.innerHTML= legacyBanner + `
     <div class="kpis" style="margin-bottom:14px">
       ${k('출하두수',fmt(st.n),'두')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
-      ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급+ 비율',fmt1(plusPctOff),'%')}</div>
+      ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급 출현율',fmt1(oneUpPct),'%')}</div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       <div class="card" style="box-shadow:none">
