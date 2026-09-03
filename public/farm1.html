@@ -166,7 +166,7 @@
 </div></div>
 
 <script>
-const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_cost_records',fc:'mgmt_forecast',pigs:'mgmt_ship_pigs',weekly:'mgmt_weekly',wset:'mgmt_weekly_settings',prio:'mgmt_priority_farms'};
+const T={farms:'mgmt_farms',head:'mgmt_head_counts',breed:'mgmt_breeding',feed:'mgmt_feed',ship:'mgmt_shipments',exp:'mgmt_cost_records',fc:'mgmt_forecast',pigs:'mgmt_ship_pigs',weekly:'mgmt_weekly',wset:'mgmt_weekly_settings',prio:'mgmt_priority_farms',deaths:'mgmt_deaths'};
 const EXP_CATS=['사료대금','인건비','분뇨처리비','전력비','약품비','정액구입비','운송비','건보료','이자','캐피탈이자','통신비','렌탈비','카드값','경조사비','운영비','생활비','기타'];
 const LS='pigfarm_cfg';
 const HARDCODED={url:'https://vsljsjqxcmielpxckjrn.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzbGpzanF4Y21pZWxweGNranJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjE0NzgsImV4cCI6MjA5MTkzNzQ3OH0.K8-tfAuMt_7gWQ7vyZwgeZ6LQiOf7B9V1qwSYbu2eY4'};
@@ -203,11 +203,11 @@ function copyFarmLink(){
   } else prompt('이 링크를 복사해서 거래처에 보내세요',url);
 }
 
-const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg',shipMonth:new Date().getMonth()+1,expMonth:new Date().getMonth()+1,priorityFarms:new Set()};
+const state={farms:[],farmId:null,year:new Date().getFullYear(),tab:'dash',feedUnit:'kg',shipMonth:new Date().getMonth()+1,expMonth:new Date().getMonth()+1,deathMonth:new Date().getMonth()+1,priorityFarms:new Set()};
 const FEED_REPRO=[['preg','임신돈'],['lactating','포유돈'],['gilt','후보돈']];
 const FEED_FATTEN=[['f1','1호'],['f2','2호'],['f3','3호'],['fchange','체인지'],['suckle','젖먹이'],['grow','육성'],['finish','비육']];
 const FEED_ALL=[...FEED_REPRO,...FEED_FATTEN];
-const TABS=[['dash','대시보드'],['head','상시두수'],['breed','번식성적'],['feed','사료'],['ship','출하현황'],['perf','출하성적'],['fc','출하예측'],['weekly','주간계획'],['exp','운영경비']];
+const TABS=[['dash','대시보드'],['head','상시두수'],['deaths','폐사'],['breed','번식성적'],['feed','사료'],['ship','출하현황'],['perf','출하성적'],['fc','출하예측'],['weekly','주간계획'],['exp','운영경비']];
 const MONTHS=[1,2,3,4,5,6,7,8,9,10,11,12];
 const fmt=n=>n==null||n===''||isNaN(n)?'-':Math.round(n).toLocaleString('ko-KR');
 const fmt1=n=>n==null||isNaN(n)?'-':Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1,minimumFractionDigits:1});
@@ -260,7 +260,7 @@ function render(){
   if(!sb){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🔌</div>Supabase에 아직 연결되지 않았습니다.<br>우측 상단 ⚙️ 에서 URL과 anon key를 입력하세요.</div></div></div>`;return;}
   if(!state.farmId){v.innerHTML=`<div class="card"><div class="bd"><div class="empty"><div class="big">🏡</div>등록된 거래처(농장)가 없습니다.<br>우측 상단 <b>+ 농장</b> 으로 추가하세요.</div></div></div>`;return;}
   if(state.tab==='weekly' && !(state.farmId&&state.priorityFarms.has(String(state.farmId)))) state.tab='dash';
-  ({dash:viewDash,head:()=>viewGrid('head'),breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,fc:viewForecast,exp:viewExp,weekly:viewWeekly})[state.tab]();
+  ({dash:viewDash,head:()=>viewGrid('head'),deaths:viewDeaths,breed:()=>viewGrid('breed'),feed:viewFeed,ship:viewShip,perf:viewPerf,fc:viewForecast,exp:viewExp,weekly:viewWeekly})[state.tab]();
 }
 function kpi(k,v,unit,brand){return `<div class="kpi ${brand?'brand':''}"><div class="k">${k}</div><div class="v">${v} <small>${unit||''}</small></div></div>`;}
 
@@ -1070,6 +1070,71 @@ async function viewDash(){
     <div class="card"><div class="hd"><h2>월별 종합</h2><span class="sub">${y}년 · 각 탭 입력값 자동 반영</span></div>
       <div class="tablewrap"><table><thead><tr><th>월</th><th>상시모돈</th><th>총사육</th><th>출하두수</th><th>출하금액</th><th>사료량(kg)</th><th>사료비</th><th>운영경비</th><th>순이익(추정)</th></tr></thead>
       <tbody>${rowsHtml}<tr class="tot"><td class="mcol">합계</td><td>-</td><td>-</td><td>${fmt(T_ship)}</td><td>${fmt(T_amt)}</td><td>${fmt(T_feedkg)}</td><td>${fmt(T_feedc)}</td><td>${fmt(T_exp)}</td><td>${fmt(T_net)}</td></tr></tbody></table></div></div>`;
+}
+
+/* ---------- 폐사 (단계별 폐사두수 + 폐사율, 모바일 세로형) ---------- */
+const DEATH_BIYUK=[['suckling','포유자돈'],['weaned','이유자돈'],['growing','육성돈'],['finishing','비육돈']];
+const DEATH_BANSIK=[['gilt','후보돈'],['boar','웅돈'],['preg','임신돈'],['lactating','포유돈']];
+function headDenom(hr,key){ if(!hr)return 0;
+  if(key==='gilt')return num(hr.gilt_female)+num(hr.gilt_male);
+  return num(hr[key]); }
+async function viewDeaths(){
+  const y=state.year, fid=state.farmId, dm=state.deathMonth;
+  const [dq,hq]=await Promise.all([
+    sb.from(T.deaths).select('*').eq('farm_id',fid).like('ym',`${y}-%`),
+    sb.from(T.head).select('*').eq('farm_id',fid).like('ym',`${y}-%`)]);
+  const D={},H={}; (dq.data||[]).forEach(r=>D[+r.ym.slice(5,7)]=r); (hq.data||[]).forEach(r=>H[+r.ym.slice(5,7)]=r);
+  const sumStage=(defs,r)=>defs.reduce((s,[k])=>s+num(r&&r['d_'+k]),0);
+  const sumHead=(defs,hr)=>defs.reduce((s,[k])=>s+headDenom(hr,k),0);
+  const sumRow=m=>{const r=D[m],hr=H[m];
+    const bD=sumStage(DEATH_BIYUK,r),bH=sumHead(DEATH_BIYUK,hr);
+    const rD=sumStage(DEATH_BANSIK,r),rH=sumHead(DEATH_BANSIK,hr);
+    const has=bD||rD;
+    return `<tr data-dm="${m}" style="cursor:pointer${m===dm?';background:var(--brand-l)':''}"><td class="mcol">${m}월</td>
+      <td>${has?fmt(bD):'-'}</td><td>${bH?fmt1(bD/bH*100)+'%':'-'}</td>
+      <td class="gsep">${has?fmt(rD):'-'}</td><td>${rH?fmt1(rD/rH*100)+'%':'-'}</td></tr>`;};
+  const hr=H[dm]||{}, dr=D[dm]||{};
+  const detRows=(defs)=>defs.map(([k,l])=>{const dv=dr['d_'+k], hd=headDenom(hr,k);
+    return `<tr><td class="mcol" style="text-align:left">${l}</td>
+      <td><input class="cell" data-dk="d_${k}" value="${dv!=null?dv:''}" inputmode="numeric" style="width:84px"></td>
+      <td style="color:var(--muted)">${hd?fmt(hd):'-'}</td>
+      <td class="calc" data-rate="${k}">-</td></tr>`;}).join('');
+  const subRow=(defs,label)=>`<tr class="subtot"><td class="mcol" style="text-align:left">${label}</td><td data-sub="cnt-${label}">-</td><td>${sumHead(defs,hr)?fmt(sumHead(defs,hr)):'-'}</td><td data-sub="rate-${label}">-</td></tr>`;
+  document.getElementById('view').innerHTML=`
+    <div class="card"><div class="hd"><h2>폐사 현황</h2><span class="sub">${y}년 · 월을 누르면 그달 단계별 입력 · 폐사율=폐사두수÷상시두수</span></div>
+      <div class="tablewrap"><table><thead><tr><th>월</th><th>비육 폐사</th><th>비육 폐사율</th><th class="gsep">번식 폐사</th><th>번식 폐사율</th></tr></thead>
+      <tbody>${MONTHS.map(sumRow).join('')}</tbody></table></div></div>
+    <div class="card" style="margin-top:18px"><div class="hd"><h2>${dm}월 폐사 입력</h2><span class="sub">폐사두수만 입력 → 폐사율 자동</span></div>
+      <div class="tablewrap"><table id="dgrid"><thead><tr><th style="text-align:left">단계</th><th>폐사두수</th><th>상시두수</th><th>폐사율</th></tr></thead>
+        <tbody>
+          <tr class="tot"><td colspan="4" class="mcol" style="text-align:left">🐖 비육돈</td></tr>
+          ${detRows(DEATH_BIYUK)}
+          ${subRow(DEATH_BIYUK,'비육소계')}
+          <tr class="tot"><td colspan="4" class="mcol" style="text-align:left">🐖 번식돈</td></tr>
+          ${detRows(DEATH_BANSIK)}
+          ${subRow(DEATH_BANSIK,'번식소계')}
+        </tbody></table></div>
+      <div class="gridfoot"><span class="hint">상시두수는 '상시두수' 탭 값에서 자동으로 가져옵니다 (없으면 폐사율 "-")</span>
+        <button class="btn primary" id="saveDeaths">${dm}월 저장</button></div></div>`;
+  const recompute=()=>{
+    const val=k=>num(document.querySelector(`#dgrid [data-dk="d_${k}"]`).value);
+    [...DEATH_BIYUK,...DEATH_BANSIK].forEach(([k])=>{const hd=headDenom(hr,k);const cell=document.querySelector(`#dgrid [data-rate="${k}"]`);
+      cell.textContent= hd?fmt1(val(k)/hd*100)+'%':'-';});
+    const grp=(defs,label)=>{const cnt=defs.reduce((s,[k])=>s+val(k),0),hd=sumHead(defs,hr);
+      document.querySelector(`#dgrid [data-sub="cnt-${label}"]`).textContent=cnt?fmt(cnt):'-';
+      document.querySelector(`#dgrid [data-sub="rate-${label}"]`).textContent=hd?fmt1(cnt/hd*100)+'%':'-';};
+    grp(DEATH_BIYUK,'비육소계'); grp(DEATH_BANSIK,'번식소계');
+  };
+  document.getElementById('dgrid').addEventListener('input',recompute); recompute(); fmtCells();
+  document.querySelectorAll('[data-dm]').forEach(tr=>tr.onclick=()=>{state.deathMonth=+tr.dataset.dm;viewDeaths();});
+  document.getElementById('saveDeaths').onclick=async()=>{
+    const o={farm_id:fid,ym:ym(dm)}; let any=false;
+    [...DEATH_BIYUK,...DEATH_BANSIK].forEach(([k])=>{const v=num(document.querySelector(`#dgrid [data-dk="d_${k}"]`).value);o['d_'+k]=v;if(v)any=true;});
+    if(!any){ await sb.from(T.deaths).delete().eq('farm_id',fid).eq('ym',ym(dm)); toast('폐사 데이터 비움'); viewDeaths(); return; }
+    o.updated_at=new Date().toISOString();
+    const {error}=await sb.from(T.deaths).upsert(o,{onConflict:'farm_id,ym'});
+    if(error){toast('저장 실패: '+error.message,true);return;} toast(`${dm}월 폐사 저장됨`); viewDeaths();
+  };
 }
 
 /* ================== 주간계획 (중점거래처 전용) ================== */
