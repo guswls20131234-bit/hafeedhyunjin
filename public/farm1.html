@@ -628,7 +628,7 @@ document.getElementById('applyMap').onclick=async()=>{
 };
 
 /* ---------- 도체 산점도 (정산서 업로드) ---------- */
-let scDate=null, scMode='date', scShipId=null, scLegacyDate=null;
+let scDate=null, scMode='date', scShipId=null, scLegacyDate=null, scSummary=null;
 function gradeOf(cw,bf){
   if(cw>=83&&cw<93&&bf>=17&&bf<25)return'plus';
   if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))return'one';
@@ -705,6 +705,21 @@ function parseSettlement(aoa){
   return{date,pigs};
 }
 const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+/* 정산서 요약(전체 시트)에서 지급률·수취율 추출 */
+function parseSettleSummary(wb){
+  const want={'지급율':'rate','지급률':'rate','전국단가':'base','총지급액':'total','생체중량':'live'};
+  const out={}; const gnum=v=>{const n=parseFloat(String(v==null?'':v).replace(/,/g,''));return isNaN(n)?null:n;};
+  (wb.SheetNames||[]).forEach(sn=>{
+    let aoa; try{aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});}catch(_){return;}
+    for(let r=0;r<Math.min(aoa.length,50);r++){const row=aoa[r]||[];
+      for(let c=0;c<row.length;c++){const key=String(row[c]==null?'':row[c]).replace(/\s/g,'').trim();
+        if(want[key]!=null && out[want[key]]==null){
+          for(let cc=c+1;cc<Math.min(c+4,row.length);cc++){const n=gnum(row[cc]); if(n!=null){out[want[key]]=n;break;}}}}}
+  });
+  const payRate = out.rate!=null ? (out.rate<=1.5?out.rate*100:out.rate) : null;
+  const recvRate = (out.total&&out.live&&out.base) ? out.total/out.live/out.base*100 : null;
+  return (payRate!=null||recvRate!=null) ? {payRate,recvRate} : null;
+}
 
 async function openRowScatter(shipId, date){
   scMode='row'; scShipId=String(shipId); scDate=date; scLegacyDate=null;
@@ -759,6 +774,10 @@ function renderScatter(pigs, isLegacy){
   if(hasGrade){ pigs.forEach(p=>{const g=p.grade&&gc.hasOwnProperty(p.grade)?p.grade:(p.grade?'등외':null); if(g)gc[g]++;}); }
   else { pigs.forEach(p=>{const z=gradeOf(num(p.cw),num(p.bf)); gc[z==='plus'?'1+':z==='one'?'1':'등외']++;}); }
   const oneUpPct = N ? (gc['1+']+gc['1'])/N*100 : 0;
+  // 지급률·수취율 (정산서에서 읽어 저장된 값, 두수가중 평균)
+  const prR=pigs.filter(p=>p.pay_rate!=null), rrR=pigs.filter(p=>p.recv_rate!=null);
+  const payRate = prR.length? prR.reduce((a,p)=>a+num(p.pay_rate),0)/prR.length : null;
+  const recvRate = rrR.length? rrR.reduce((a,p)=>a+num(p.recv_rate),0)/rrR.length : null;
   const gradeRows=['1+','1','2','등외'].map(g=>`<tr><td class="mcol">${g}${g==='등외'?'':'등급'}</td><td>${fmt(gc[g])}</td><td>${N?fmt1(gc[g]/N*100):'-'}</td></tr>`).join('');
   const legacyBanner = isLegacy
     ? `<div style="background:#fbf4e6;border:1px solid #e7d8b0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7a5d1b;line-height:1.5">
@@ -767,6 +786,7 @@ function renderScatter(pigs, isLegacy){
     : '';
   body.innerHTML= legacyBanner + `
     <div class="kpis" style="margin-bottom:14px">
+      ${payRate!=null?k('지급률',fmt1(payRate),'%'):''}${recvRate!=null?k('수취율',fmt1(recvRate),'%'):''}
       ${k('출하두수',fmt(st.n),'두')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
       ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급 출현율',fmt1(oneUpPct),'%')}</div>
 
@@ -798,8 +818,10 @@ function renderScatter(pigs, isLegacy){
 async function saveScatter(pigs){
   await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('shipment_id',scShipId);
   await sb.from(T.pigs).delete().eq('farm_id',state.farmId).eq('ship_date',scDate).is('shipment_id',null);
+  const pr=scSummary&&scSummary.payRate!=null?scSummary.payRate:null;
+  const rr=scSummary&&scSummary.recvRate!=null?scSummary.recvRate:null;
   const rows=pigs.map(p=>({farm_id:state.farmId,ship_date:scDate,shipment_id:scShipId,pig_id:p.pig_id||null,sex:p.sex||null,
-    lw:p.lw||0,cw:p.cw||0,bf:p.bf||0,price:p.price||0,grade:p.grade||null}));
+    lw:p.lw||0,cw:p.cw||0,bf:p.bf||0,price:p.price||0,grade:p.grade||null,pay_rate:pr,recv_rate:rr}));
   const {error}=await sb.from(T.pigs).insert(rows);
   if(error){toast('저장 실패: '+error.message,true);return false;}
   return true;
@@ -809,8 +831,9 @@ document.getElementById('scFile').onchange=e=>{const f=e.target.files[0]; e.targ
   const rd=new FileReader();
   rd.onload=async ev=>{
     try{await ensureXLSX();}catch(_){toast('엑셀 모듈 로드 실패(네트워크 확인)',true);return;}
-    let aoa; try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
-      aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});}
+    let aoa; scSummary=null; try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});
+      scSummary=parseSettleSummary(wb);}
     catch(err){toast('엑셀을 읽을 수 없습니다',true);return;}
     const {date,pigs}=parseSettlement(aoa);
     if(!pigs.length){toast('도체 데이터를 찾지 못했습니다',true);return;}
