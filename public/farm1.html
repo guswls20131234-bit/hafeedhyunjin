@@ -792,9 +792,9 @@ function renderScatter(pigs, isLegacy){
     : '';
   body.innerHTML= legacyBanner + `
     <div class="kpis" style="margin-bottom:14px">
-      ${payRate!=null?k('지급률',fmt1(payRate),'%'):''}${recvRate!=null?k('수취율',fmt1(recvRate),'%'):''}
-      ${k('출하두수',fmt(st.n),'두')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
-      ${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}${k('1등급 출현율',fmt1(oneUpPct),'%')}</div>
+      ${k('출하두수',fmt(st.n),'두')}${k('평균 생체중',st.avgLw?fmt1(st.avgLw):'-','kg')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
+      ${k('1등급 출현율',fmt1(oneUpPct),'%')}${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}
+      ${payRate!=null?k('지급률',fmt1(payRate),'%'):''}${recvRate!=null?k('수취율',fmt1(recvRate),'%'):''}</div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       <div class="card" style="box-shadow:none">
