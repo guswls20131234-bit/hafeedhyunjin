@@ -707,16 +707,22 @@ function parseSettlement(aoa){
 const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 /* 정산서 요약(전체 시트)에서 지급률·수취율 추출 */
 function parseSettleSummary(wb){
-  const want={'지급율':'rate','지급률':'rate','전국단가':'base','총지급액':'total','생체중량':'live'};
-  const out={}; const gnum=v=>{const n=parseFloat(String(v==null?'':v).replace(/,/g,''));return isNaN(n)?null:n;};
+  const want={'지급율':'rate','지급률':'rate','전국단가':'base','전국시세':'base','기준단가':'base','총지급액':'total','총지급금액':'total','생체중량':'live','총생체중':'live'};
+  const out={}; const gnum=v=>{let s=String(v==null?'':v).replace(/[,%원\s]/g,'');const n=parseFloat(s);return isNaN(n)?null:n;};
   (wb.SheetNames||[]).forEach(sn=>{
     let aoa; try{aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});}catch(_){return;}
-    for(let r=0;r<Math.min(aoa.length,50);r++){const row=aoa[r]||[];
+    for(let r=0;r<Math.min(aoa.length,60);r++){const row=aoa[r]||[];
       for(let c=0;c<row.length;c++){const key=String(row[c]==null?'':row[c]).replace(/\s/g,'').trim();
-        if(want[key]!=null && out[want[key]]==null){
-          for(let cc=c+1;cc<Math.min(c+4,row.length);cc++){const n=gnum(row[cc]); if(n!=null){out[want[key]]=n;break;}}}}}
+        const tgt=want[key]; if(tgt==null||out[tgt]!=null)continue;
+        // 오른쪽 → 왼쪽 → 아래 순으로 첫 숫자 탐색 (라벨 위치가 양식마다 다름)
+        let v=null;
+        for(let cc=c+1;cc<Math.min(c+4,row.length)&&v==null;cc++)v=gnum(row[cc]);
+        for(let cc=c-1;cc>=Math.max(0,c-3)&&v==null;cc--)v=gnum(row[cc]);
+        for(let rr=r+1;rr<Math.min(r+3,aoa.length)&&v==null;rr++)v=gnum((aoa[rr]||[])[c]);
+        if(v!=null)out[tgt]=v;}}
   });
-  const payRate = out.rate!=null ? (out.rate<=1.5?out.rate*100:out.rate) : null;
+  let payRate = out.rate!=null ? (out.rate<=1.5?out.rate*100:out.rate) : null;
+  if(payRate!=null && (payRate<=0||payRate>120)) payRate=null;
   const recvRate = (out.total&&out.live&&out.base) ? out.total/out.live/out.base*100 : null;
   return (payRate!=null||recvRate!=null) ? {payRate,recvRate} : null;
 }
