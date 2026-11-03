@@ -716,9 +716,9 @@ function parseSettleSummary(wb){
         const tgt=want[key]; if(tgt==null||out[tgt]!=null)continue;
         // 오른쪽 → 왼쪽 → 아래 순으로 첫 숫자 탐색 (라벨 위치가 양식마다 다름)
         let v=null;
-        for(let cc=c+1;cc<Math.min(c+4,row.length)&&v==null;cc++)v=gnum(row[cc]);
-        for(let cc=c-1;cc>=Math.max(0,c-3)&&v==null;cc--)v=gnum(row[cc]);
-        for(let rr=r+1;rr<Math.min(r+3,aoa.length)&&v==null;rr++)v=gnum((aoa[rr]||[])[c]);
+        for(let cc=c+1;cc<Math.min(c+9,row.length)&&v==null;cc++)v=gnum(row[cc]);
+        for(let cc=c-1;cc>=Math.max(0,c-5)&&v==null;cc--)v=gnum(row[cc]);
+        for(let rr=r+1;rr<Math.min(r+3,aoa.length)&&v==null;rr++){const nr=aoa[rr]||[];for(let cc=c;cc<Math.min(c+9,nr.length)&&v==null;cc++)v=gnum(nr[cc]);}
         if(v!=null)out[tgt]=v;}}
   });
   let payRate = out.rate!=null ? (out.rate<=1.5?out.rate*100:out.rate) : null;
