@@ -628,7 +628,17 @@ document.getElementById('applyMap').onclick=async()=>{
 };
 
 /* ---------- 도체 산점도 (정산서 업로드) ---------- */
-let scDate=null, scMode='date', scShipId=null, scLegacyDate=null, scSummary=null;
+let scDate=null, scMode='date', scShipId=null, scLegacyDate=null, scSummary=null, scApplied=null;
+async function calcApplied(filter){ // 수취단가(적용%) = 금액÷kg÷전국, 출하 기록 기준
+  try{let q=sb.from(T.ship).select('total_kg,amount,national_price').eq('farm_id',state.farmId);
+    q=filter(q); const {data}=await q; const rows=data||[];
+    let amt=0,kg=0,natkg=0,kgwn=0;
+    rows.forEach(r=>{amt+=num(r.amount);kg+=num(r.total_kg);
+      if(num(r.national_price)>0){natkg+=num(r.national_price)*num(r.total_kg);kgwn+=num(r.total_kg);}});
+    const natAvg=kgwn?natkg/kgwn:0, pk=kg?amt/kg:0;
+    return natAvg?pk/natAvg*100:null;
+  }catch(e){return null;}
+}
 function gradeOf(cw,bf){
   if(cw>=83&&cw<93&&bf>=17&&bf<25)return'plus';
   if((cw>=80&&cw<83&&bf>=15&&bf<=28)||(cw>=83&&cw<93&&bf>=15&&bf<17)||(cw>=83&&cw<93&&bf>=25&&bf<=28)||(cw>=93&&cw<98&&bf>=15&&bf<=28))return'one';
@@ -728,10 +738,11 @@ function parseSettleSummary(wb){
 }
 
 async function openRowScatter(shipId, date){
-  scMode='row'; scShipId=String(shipId); scDate=date; scLegacyDate=null;
+  scMode='row'; scShipId=String(shipId); scDate=date; scLegacyDate=null; scApplied=null;
   document.getElementById('scHd').textContent=`${date} 도체 산점도`;
   document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
   openModal('scatterModal');
+  scApplied=await calcApplied(q=>q.eq('id',shipId));
   let {data}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId).eq('shipment_id',scShipId).order('pig_id');
   data=data||[];
   if(!data.length){
@@ -743,9 +754,10 @@ async function openRowScatter(shipId, date){
 async function openMonthScatter(m){
   const ym=`${state.year}-${String(m).padStart(2,'0')}`;
   const next = m===12 ? `${state.year+1}-01-01` : `${state.year}-${String(m+1).padStart(2,'0')}-01`;
-  scMode='month'; scDate=ym; document.getElementById('scHd').textContent=`${ym} 한 달 전체 도체 산점도`;
+  scMode='month'; scDate=ym; scApplied=null; document.getElementById('scHd').textContent=`${ym} 한 달 전체 도체 산점도`;
   document.getElementById('scBody').innerHTML='<div class="empty">불러오는 중...</div>';
   openModal('scatterModal');
+  scApplied=await calcApplied(q=>q.gte('ship_date',`${ym}-01`).lt('ship_date',next));
   const {data,error}=await sb.from(T.pigs).select('*').eq('farm_id',state.farmId)
     .gte('ship_date',`${ym}-01`).lt('ship_date',next).order('ship_date');
   if(error){toast('불러오기 실패: '+error.message,true);}
@@ -783,7 +795,8 @@ function renderScatter(pigs, isLegacy){
   // 지급률·수취율 (정산서에서 읽어 저장된 값, 두수가중 평균)
   const prR=pigs.filter(p=>p.pay_rate!=null), rrR=pigs.filter(p=>p.recv_rate!=null);
   const payRate = prR.length? prR.reduce((a,p)=>a+num(p.pay_rate),0)/prR.length : null;
-  const recvRate = rrR.length? rrR.reduce((a,p)=>a+num(p.recv_rate),0)/rrR.length : null;
+  // 수취단가(적용%)는 출하 기록(금액÷kg÷전국) 기준 — 등급제·탕박 모두 항상 계산됨
+  const recvRate = scApplied!=null ? scApplied : (rrR.length? rrR.reduce((a,p)=>a+num(p.recv_rate),0)/rrR.length : null);
   const gradeRows=['1+','1','2','등외'].map(g=>`<tr><td class="mcol">${g}${g==='등외'?'':'등급'}</td><td>${fmt(gc[g])}</td><td>${N?fmt1(gc[g]/N*100):'-'}</td></tr>`).join('');
   const legacyBanner = isLegacy
     ? `<div style="background:#fbf4e6;border:1px solid #e7d8b0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7a5d1b;line-height:1.5">
@@ -794,7 +807,7 @@ function renderScatter(pigs, isLegacy){
     <div class="kpis" style="margin-bottom:14px">
       ${k('출하두수',fmt(st.n),'두')}${k('평균 생체중',st.avgLw?fmt1(st.avgLw):'-','kg')}${k('평균 도체중',fmt1(st.avgCw),'kg')}${k('평균 등지방',fmt1(st.avgBf),'mm')}
       ${k('1등급 출현율',fmt1(oneUpPct),'%')}${k('지육율',st.avgLw?fmt1(st.dressing):'-','%')}
-      ${payRate!=null?k('지급률',fmt1(payRate),'%'):''}${recvRate!=null?k('수취율',fmt1(recvRate),'%'):''}</div>
+      ${payRate!=null?k('지급률',fmt1(payRate),'%'):''}${recvRate!=null?k('수취단가',fmt1(recvRate),'%'):''}</div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       <div class="card" style="box-shadow:none">
@@ -880,9 +893,12 @@ async function viewShip(){
   const mr=rows.filter(r=>+(r.ship_date||'').slice(5,7)===sm);
   const mrTot=()=>{
     const sub=arr=>{const h=arr.reduce((s,r)=>s+num(r.head),0),kg=arr.reduce((s,r)=>s+num(r.total_kg),0),amt=arr.reduce((s,r)=>s+num(r.amount),0);
-      return {h,kg,amt,pw:h?kg/h:0,pk:kg?amt/kg:0};};
+      const natkg=arr.reduce((s,r)=>s+(num(r.national_price)>0?num(r.national_price)*num(r.total_kg):0),0);
+      const kgwn=arr.reduce((s,r)=>s+(num(r.national_price)>0?num(r.total_kg):0),0);
+      const natAvg=kgwn?natkg/kgwn:0, pk=kg?amt/kg:0;
+      return {h,kg,amt,pw:h?kg/h:0,pk,ap:natAvg?pk/natAvg*100:0};};
     const row=(label,arr,cls)=>{const t=sub(arr);
-      return `<tr class="${cls}"><td colspan="2" class="mcol">${label}</td><td>${fmt(t.h)}</td><td>${fmt(t.kg)}</td><td>${fmt1(t.pw)}</td><td>${fmt(t.amt)}</td><td>${fmt(t.pk)}</td><td>-</td><td></td></tr>`;};
+      return `<tr class="${cls}"><td colspan="2" class="mcol">${label}</td><td>${fmt(t.h)}</td><td>${fmt(t.kg)}</td><td>${fmt1(t.pw)}</td><td>${fmt(t.amt)}</td><td>${fmt(t.pk)}</td><td>-</td><td>${t.ap?fmt1(t.ap):'-'}</td><td></td></tr>`;};
     return row('규격 합계',mr.filter(r=>!r.is_offspec),'subtot')+row('비규격 합계',mr.filter(r=>r.is_offspec),'subtot')+row('합계',mr,'tot');
   };
   document.getElementById('view').innerHTML=`
@@ -905,11 +921,11 @@ async function viewShip(){
         <div class="field"><label>전국시세</label><input class="inp" id="s_nat" inputmode="numeric"></div>
         <button class="btn primary" id="addShip">+ 추가</button>
         <button class="btn" id="openScMon">📈 이 달 전체 산점도</button></div>
-      <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th></th></tr></thead>
-      <tbody>${mr.length?(mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0;
+      <div class="tablewrap"><table><thead><tr><th>일자</th><th>구분</th><th>두수</th><th>kg</th><th>평체</th><th>금액</th><th>kg단가</th><th>전국</th><th>적용%</th><th></th></tr></thead>
+      <tbody>${mr.length?(mr.map(r=>{const pk=num(r.total_kg)?num(r.amount)/num(r.total_kg):0,pw=num(r.head)?num(r.total_kg)/num(r.head):0,ap=num(r.national_price)?pk/num(r.national_price)*100:0;
         return `<tr><td>${r.ship_date||''}</td><td><span class="badge ${r.is_offspec?'off':''}">${r.is_offspec?'비규격':'규격'}</span></td>
-        <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td>
-        <td style="white-space:nowrap"><button class="btn" data-scrow="${r.id}" data-scdate="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')+mrTot()):`<tr><td colspan="9" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+        <td>${fmt(r.head)}</td><td>${fmt(r.total_kg)}</td><td>${fmt1(pw)}</td><td>${fmt(r.amount)}</td><td>${fmt(pk)}</td><td>${fmt(r.national_price)}</td><td>${ap?fmt1(ap):'-'}</td>
+        <td style="white-space:nowrap"><button class="btn" data-scrow="${r.id}" data-scdate="${r.ship_date}" style="padding:3px 8px;font-size:12px">📈</button> <button class="del" data-del="${r.id}">삭제</button></td></tr>`;}).join('')+mrTot()):`<tr><td colspan="10" class="empty">${sm}월 출하 기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
 
   document.querySelectorAll('[data-mon]').forEach(tr=>tr.onclick=()=>{state.shipMonth=+tr.dataset.mon;viewShip();});
   document.getElementById('openScMon').onclick=()=>openMonthScatter(sm);
